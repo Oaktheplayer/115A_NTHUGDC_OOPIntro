@@ -3,6 +3,24 @@
 ## Goal
 Clear the field: find and defeat every enemy. Controls: **WASD** move, **Left Mouse** attack, **E** swap weapon with one on the ground.
 
+## Project layout
+
+```
+Assets/
+├── Scripts/                  ← Teacher-provided game code (do not rewrite for the lab)
+│   ├── Player/
+│   ├── Enemy/
+│   ├── Combat/               ← Health, Weapon, Projectile, Data class definitions
+│   ├── Visuals/
+│   └── Optional/             ← Legacy / advanced (not required)
+├── EducationalContent/       ← Prefab templates + SO assets to copy / assign
+│   ├── Prefabs/
+│   └── Data/
+├── Docs/
+├── Editor/
+└── Scenes/
+```
+
 ## Teacher setup (once)
 1. Open Unity and wait for scripts to compile.
 2. Menu: **NTHUGDC → Setup Educational Content**
@@ -43,10 +61,11 @@ Weapon
 ```
 
 `WeaponPivot` owns rotation; the weapon keeps a local `holdOffset` under the pivot.
+
 ## Student assignments
 
 ### 1. Enemy Prefab variants (≥2)
-- Duplicate `EnemyTemplate`.
+- Duplicate `EnemyTemplate` under `EducationalContent/Prefabs/`.
 - Change the `Sprite` child look.
 - Create new **Enemy Data** assets (`Create → Combat → Enemy Data`) and assign different `maxHealth`, `moveSpeed`, `aggroRange`.
 - Change which **Weapon** child is attached (melee vs ranged) as part of the enemy design.
@@ -67,9 +86,9 @@ Weapon
 | `WeaponData` | damage, attackCooldown, hurtbox duration, projectile prefab/speed |
 | `EnemyData` | maxHealth, moveSpeed, aggroRange |
 
-Sprites and hierarchy live on Prefabs.
+Sprites and hierarchy live on Prefabs. Class definitions live in `Scripts/Combat/Data/`; asset instances live in `EducationalContent/Data/`.
 
-## Key scripts (teacher-provided)
+## Key scripts (teacher-provided, under `Assets/Scripts/`)
 | Script | Role |
 |--------|------|
 | `Weapon` / `RangedWeapon` / `MeleeWeapon` | OOP inheritance + cooldown from `WeaponData` |
@@ -81,4 +100,4 @@ Sprites and hierarchy live on Prefabs.
 | `MeleeSwingVisual` | Coroutine rotation tween (later student task) |
 | `Player*` | Ready-to-use player Prefab |
 
-Legacy RangeDetect / old projectile strategies live under `Assets/Combat/Optional/` and are not required for the lab.
+Legacy RangeDetect / old projectile strategies live under `Assets/Scripts/Optional/` and are not required for the lab.
