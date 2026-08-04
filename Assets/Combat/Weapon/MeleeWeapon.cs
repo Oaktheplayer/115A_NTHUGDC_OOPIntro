@@ -1,45 +1,67 @@
+using System.Collections;
 using UnityEngine;
-using Combat;
 
-public class MeleeWeapon : Weapon
+namespace Combat
 {
-    [SerializeField] float knockBackForce = 5f;
-    [SerializeField] int damage;
-    [SerializeField] Rigidbody2D rbSelf;
-
-    public override void Attack(Transform target)
+    public class MeleeWeapon : Weapon
     {
-        if (target == null)
+        [SerializeField] private HurtBox hurtBox;
+        [SerializeField] private MeleeSwingVisual swingVisual;
+        [SerializeField] private float hurtBoxDistance = 0.6f;
+
+        private Coroutine activeSwing;
+
+        protected override void Awake()
         {
-            Debug.LogError($"[{name}:Attack] Target is null. Cannot attack.");
-            return;
+            base.Awake();
+
+            if (hurtBox == null && hurtBoxObject != null)
+                hurtBox = hurtBoxObject.GetComponent<HurtBox>();
+
+            if (swingVisual == null)
+                swingVisual = GetComponentInChildren<MeleeSwingVisual>(true);
         }
 
-
-
-        if (target.TryGetComponent<Health>(out var health))
+        protected override void PerformAttack(Vector2 direction, Transform target)
         {
-            health.TakeDamage(damage);
+            PositionHurtBox(direction);
+            swingVisual?.PlaySwing(direction);
+
+            if (activeSwing != null)
+                StopCoroutine(activeSwing);
+            activeSwing = StartCoroutine(SwingHurtBoxRoutine());
         }
 
-        // TODO: knock back callback to play animation and shit
-        if (target.TryGetComponent<Rigidbody2D>(out var rb))
+        private void PositionHurtBox(Vector2 direction)
         {
-            Vector2 direction = (target.transform.position - transform.position).normalized;
+            if (hurtBoxObject == null)
+                return;
 
-            rb.AddForce(
-                direction * knockBackForce,
-                ForceMode2D.Impulse
-                );
+            // WeaponPivot already faces the aim direction; place the HurtBox along local +X.
+            hurtBoxObject.transform.localPosition = new Vector3(hurtBoxDistance, 0f, 0f);
+            hurtBoxObject.transform.localRotation = Quaternion.identity;
+        }
 
-            if (rbSelf != null)
+        private IEnumerator SwingHurtBoxRoutine()
+        {
+            float duration = data != null ? data.hurtboxActiveDuration : 0.15f;
+            int damage = data != null ? data.damage : 1;
+
+            if (hurtBoxObject != null)
+                hurtBoxObject.SetActive(true);
+
+            if (hurtBox != null)
             {
-                rbSelf.AddForce(
-                    -direction * knockBackForce,
-                    ForceMode2D.Impulse
-                    );
+                hurtBox.ApplyDamageValue(damage);
+                hurtBox.BeginSwing();
             }
+
+            yield return new WaitForSeconds(duration);
+
+            if (hurtBoxObject != null)
+                hurtBoxObject.SetActive(false);
+
+            activeSwing = null;
         }
     }
-
 }

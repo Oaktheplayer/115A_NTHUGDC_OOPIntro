@@ -3,6 +3,9 @@ using UnityEngine;
 
 namespace Combat
 {
+    /// <summary>
+    /// Optional / legacy auto-attacker using RangeDetect. Not used by the main course path.
+    /// </summary>
     public class RepeatAttacker : MonoBehaviour
     {
         [Header("References")]
@@ -24,8 +27,14 @@ namespace Combat
         private void Attack()
         {
             var target = rangeDetect.GetTarget();
+            if (target == null)
+                return;
 
-            weapon.Attack(target);
+            Vector2 direction = ((Vector2)target.position - (Vector2)transform.position);
+            if (direction.sqrMagnitude < 0.0001f)
+                direction = Vector2.up;
+
+            weapon.Attack(direction.normalized, target);
         }
 
         private void Start()
@@ -33,19 +42,15 @@ namespace Combat
             StartCoroutine(AttackCoroutine());
         }
 
-        // TODO: use UpdateManager
         private IEnumerator AttackCoroutine()
         {
             while (true)
             {
                 if (waitForTarget)
-                {
                     yield return rangeDetect.WaitForTarget();
-                }
+
                 if (attackDelay != 0f)
-                {
                     yield return new WaitForSeconds(attackDelay);
-                }
 
                 Attack();
 
