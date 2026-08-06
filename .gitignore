@@ -77,3 +77,14 @@ crashlytics-build.properties
 # cursor stuff
 .cursor/*
 *.code-workspace
+
+# TextMesh Pro — keep Essential Resources; ignore optional extras
+/[Aa]ssets/[Tt]ext[Mm]esh*[Pp]ro/[Ee]xamples*/
+/[Aa]ssets/[Tt]ext[Mm]esh*[Pp]ro/[Dd]ocumentation*/
+/[Aa]ssets/[Tt]ext[Mm]esh*[Pp]ro/[Ss]prites/
+# Pipeline-specific extras unused by this URP 2D lab
+/[Aa]ssets/[Tt]ext[Mm]esh*[Pp]ro/[Ss]haders/*HDRP*
+/[Aa]ssets/[Tt]ext[Mm]esh*[Pp]ro/[Ss]haders/TMP_Bitmap*
+/[Aa]ssets/[Tt]ext[Mm]esh*[Pp]ro/[Ss]haders/TMP_Sprite*
+/[Aa]ssets/[Tt]ext[Mm]esh*[Pp]ro/[Rr]esources/[Ff]onts*/LiberationSans*Drop Shadow*
+/[Aa]ssets/[Tt]ext[Mm]esh*[Pp]ro/[Rr]esources/[Ff]onts*/LiberationSans*Outline*
