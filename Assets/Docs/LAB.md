@@ -1,7 +1,7 @@
 # OOP Lab — Prefab, ScriptableObject, Inheritance
 
 ## Goal
-Clear the field: find and defeat every enemy. Controls: **WASD** move, **hold Left Mouse** to attack (ammo-limited), **E** swap weapon with one on the ground.
+Clear the field: find and defeat every enemy. Controls: **WASD** move, **hold Left Mouse** to attack (ammo-limited), **E** swap weapon with one on the ground, **Space** pause / resume.
 
 ## Project layout
 
@@ -26,9 +26,10 @@ Assets/
 2. Menu: **NTHUGDC → Setup Educational Content**
 3. This creates `Assets/EducationalContent/` with:
    - `WeaponData_Pistol`, `WeaponData_Axe`, `ProjectileData_Bullet`, `EnemyData_Basic`
-   - Prefabs: `Player`, `EnemyTemplate`, `WeaponTemplate_Ranged`, `WeaponTemplate_Melee`, `Projectile_Bullet`, `UISegment`, `UIs`
+   - Prefabs: `Player`, `EnemyTemplate`, `WeaponTemplate_Ranged`, `WeaponTemplate_Melee`, `Projectile_Bullet`, `UISegment`, `UIs`, `GameMenus`
 4. Drag `Player` into `BaseScene`. Place a few `EnemyTemplate` instances and a few weapon prefabs on the ground.
 5. Replace placeholder sprites with Kenney desert-shooter art on each Prefab’s `Sprite` child.
+6. Setup also places `GameMenus` + `EventSystem` into `BaseScene` (pause / game over Overlay). Or run **NTHUGDC → Setup Game Menus In BaseScene**.
 
 ## Hierarchy rules
 
@@ -301,6 +302,19 @@ Shared Prefab `EducationalContent/Prefabs/UIs` (World-space Canvas with `Health`
 
 Run **NTHUGDC → Setup Educational Content** if `UIs` / `UISegment` wiring is missing.
 
+### Pause / Game Over
+
+Screen-space Overlay Prefab `EducationalContent/Prefabs/GameMenus` (wired by Setup into `BaseScene`):
+
+- **Space** toggles pause (`Time.timeScale` 0/1); Pause panel shows/hides immediately
+- **Win**: all enemies defeated (`EnemyRegistry.OnAllEnemiesDefeated`) → Game Over panel fades in with “You Win!”
+- **Lose**: player `Health.OnKilledEvent` → same panel with “You Lose...”
+- Game Over fade uses `CanvasGroup` + `Time.unscaledDeltaTime` so it still animates at `timeScale = 0`
+- Both panels have a **Restart** button (`SceneManager.LoadScene` current scene)
+- `GameManager` debug flags (default off): `skipGameOverPanel`, `skipPauseOnGameOver`
+- Needs **EventSystem** + Input System UI module for button clicks
+- Clone includes TextMesh Pro Essential Resources under `Assets/TextMesh Pro/` (no extra Import step for HUD/menu text)
+
 ## Student assignments
 
 ### 1. Enemy Prefab variants (≥2)
@@ -340,6 +354,7 @@ Sprites and hierarchy live on Prefabs. Class definitions live in `Scripts/Combat
 | `VelocityWaddleTween` | Walk wiggle from velocity magnitude |
 | `MeleeSwingVisual` | Coroutine rotation tween (later student task) |
 | `SegmentedBar` / `HealthBarDisplay` / `AmmoBarDisplay` | Segmented world-space health & ammo HUD |
+| `GameManager` | Pause (Space), win/lose Game Over UI, Restart |
 | `Player*` | Ready-to-use player Prefab |
 
 Legacy RangeDetect / old projectile strategies live under `Assets/Scripts/Optional/` and are not required for the lab.

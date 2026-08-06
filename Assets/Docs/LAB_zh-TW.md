@@ -1,7 +1,7 @@
 # OOP Lab — Prefab、ScriptableObject 與繼承
 
 ## 目標
-清場：找到並擊敗場上所有敵人。操作：**WASD** 移動、**按住左鍵**攻擊（受彈藥限制）、**E** 與地上的武器交換。
+清場：找到並擊敗場上所有敵人。操作：**WASD** 移動、**按住左鍵**攻擊（受彈藥限制）、**E** 與地上的武器交換、**Space** 暫停／繼續。
 
 ## 專案資料夾結構
 
@@ -26,9 +26,10 @@ Assets/
 2. 進入選單：**NTHUGDC → Setup Educational Content**
 3. 這會建立 `Assets/EducationalContent/`，包含：
    - `WeaponData_Pistol`、`WeaponData_Axe`、`ProjectileData_Bullet`、`EnemyData_Basic`
-   - Prefab：`Player`、`EnemyTemplate`、`WeaponTemplate_Ranged`、`WeaponTemplate_Melee`、`Projectile_Bullet`、`UISegment`、`UIs`
+   - Prefab：`Player`、`EnemyTemplate`、`WeaponTemplate_Ranged`、`WeaponTemplate_Melee`、`Projectile_Bullet`、`UISegment`、`UIs`、`GameMenus`
 4. 將 `Player` 拖到 `BaseScene`。放入幾個 `EnemyTemplate` 與數把地上武器（OnGround）。
 5. 把各 Prefab 的 `Sprite` 子物件換成 Kenney 的沙漠射擊素材。
+6. Setup 也會把 `GameMenus` + `EventSystem` 放進 `BaseScene`（暫停／結算 Overlay）。或單獨執行 **NTHUGDC → Setup Game Menus In BaseScene**。
 
 ## Prefab 階層規範
 
@@ -301,6 +302,19 @@ classDiagram
 
 若缺少 `UIs`／`UISegment` 配線，執行 **NTHUGDC → Setup Educational Content**。
 
+### 暫停／結算 UI
+
+Screen-space Overlay Prefab `EducationalContent/Prefabs/GameMenus`（Setup 會接到 `BaseScene`）：
+
+- **Space** 切換暫停（`Time.timeScale` 0/1）；Pause 面板即顯即隱
+- **勝利**：清光敵人（`EnemyRegistry.OnAllEnemiesDefeated`）→ Game Over 淡入「You Win!」
+- **失敗**：玩家 `Health.OnKilledEvent` → 同面板「You Lose...」
+- 結算淡入用 `CanvasGroup` + `Time.unscaledDeltaTime`，在 `timeScale = 0` 時仍能播
+- 兩邊都有 **Restart** 按鈕（`SceneManager.LoadScene` 重載目前場景）
+- `GameManager` 除錯旗標（預設關閉）：`skipGameOverPanel`、`skipPauseOnGameOver`
+- 需要 **EventSystem** + Input System UI module 才能點按鈕
+- Clone 後已含 TextMesh Pro Essential Resources（`Assets/TextMesh Pro/`），選單文字不必再 Import
+
 ## 學生任務
 
 ### 1. Enemy Prefab 變體（至少 2 種）
@@ -343,6 +357,7 @@ Sprite 與階層結構放在 Prefab；類別定義在 `Scripts/Combat/Data/`，�
 | `VelocityWaddleTween` | 依速度大小做行走小擺動 |
 | `MeleeSwingVisual` | 揮砍視覺的旋轉 tween（之後學生再做） |
 | `SegmentedBar` / `HealthBarDisplay` / `AmmoBarDisplay` | 分段 World-space 血條與彈藥 HUD |
+| `GameManager` | 暫停（Space）、勝負結算 UI、Restart |
 | `Player*` | 已完成的玩家 Prefab |
 
 舊版 RangeDetect／舊彈道策略在 `Assets/Scripts/Optional/`，本實驗不需要。

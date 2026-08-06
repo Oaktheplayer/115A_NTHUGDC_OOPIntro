@@ -1,11 +1,16 @@
 using System.IO;
 using Combat;
 using Enemy;
+using Game;
 using Player;
+using TMPro;
 using UI;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 using Visuals;
 
@@ -18,6 +23,77 @@ namespace Educational.Editor
     public static class EducationalContentSetup
     {
         private const string Root = "Assets/EducationalContent";
+        private const string AutoSetupSessionKey = "NTHUGDC_AutoGameMenusSetup_v1";
+
+        [InitializeOnLoadMethod]
+        private static void AutoWireGameMenusAfterCompile()
+        {
+            if (SessionState.GetBool(AutoSetupSessionKey, false))
+                return;
+
+            EditorApplication.delayCall += () =>
+            {
+                if (SessionState.GetBool(AutoSetupSessionKey, false))
+                    return;
+                if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+                {
+                    EditorApplication.delayCall += AutoWireGameMenusAfterCompileDeferred;
+                    return;
+                }
+
+                AutoWireGameMenusAfterCompileDeferred();
+            };
+        }
+
+        private static void AutoWireGameMenusAfterCompileDeferred()
+        {
+            if (SessionState.GetBool(AutoSetupSessionKey, false))
+                return;
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+            {
+                EditorApplication.delayCall += AutoWireGameMenusAfterCompileDeferred;
+                return;
+            }
+
+            try
+            {
+                EnsureFolders();
+                string menusPath = $"{Root}/Prefabs/GameMenus.prefab";
+                bool needPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(menusPath) == null;
+                bool needScene = !SceneHasGameManager();
+
+                if (needPrefab || needScene)
+                {
+                    EnsureGameMenusPrefab(menusPath);
+                    EnsureBaseSceneGameMenus(menusPath);
+                    AssetDatabase.SaveAssets();
+                    Debug.Log("[NTHUGDC] Auto-wired GameMenus / EventSystem into BaseScene.");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[NTHUGDC] Auto GameMenus setup deferred: {ex.Message}");
+                return;
+            }
+
+            SessionState.SetBool(AutoSetupSessionKey, true);
+        }
+
+        private static bool SceneHasGameManager()
+        {
+            const string scenePath = "Assets/Scenes/BaseScene.unity";
+            if (!File.Exists(scenePath))
+                return true;
+
+            // Avoid opening the scene if the user has unsaved work elsewhere:
+            // prefer a lightweight YAML scan for GameManager MonoBehaviour.
+            string yaml = File.ReadAllText(scenePath);
+            if (yaml.Contains("GameManager") || yaml.Contains("GameMenus"))
+                return true;
+
+            // Script GUID check (Assets/Scripts/Game/GameManager.cs.meta)
+            return yaml.Contains("a1b2c3d4e5f60718293a4b5c6d7e8f90");
+        }
 
         [MenuItem("NTHUGDC/Setup Educational Content")]
         public static void Setup()
@@ -39,10 +115,23 @@ namespace Educational.Editor
             CreateEnemyPrefab($"{Root}/Prefabs/EnemyTemplate.prefab", enemyData, melee);
             EnsureCharacterHud($"{Root}/Prefabs/Player.prefab", uis);
             EnsureCharacterHud($"{Root}/Prefabs/EnemyTemplate.prefab", uis);
+            EnsureGameMenusPrefab($"{Root}/Prefabs/GameMenus.prefab");
+            EnsureBaseSceneGameMenus($"{Root}/Prefabs/GameMenus.prefab");
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("[NTHUGDC] Educational content created under Assets/EducationalContent. Assign Kenney sprites in Prefabs as needed.");
+        }
+
+        [MenuItem("NTHUGDC/Setup Game Menus In BaseScene")]
+        public static void SetupGameMenusOnly()
+        {
+            EnsureFolders();
+            EnsureGameMenusPrefab($"{Root}/Prefabs/GameMenus.prefab");
+            EnsureBaseSceneGameMenus($"{Root}/Prefabs/GameMenus.prefab");
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[NTHUGDC] GameMenus prefab + BaseScene wiring done.");
         }
 
         private static void EnsureFolders()
@@ -623,6 +712,185 @@ namespace Educational.Editor
 
             PrefabUtility.SaveAsPrefabAsset(root, path);
             Object.DestroyImmediate(root);
+        }
+
+        private static GameObject EnsureGameMenusPrefab(string path)
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (existing != null)
+                return existing;
+
+            TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+                "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset");
+
+            var root = new GameObject("GameMenus", typeof(RectTransform));
+            var canvas = root.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 100;
+
+            var scaler = root.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
+            root.AddComponent<GraphicRaycaster>();
+
+            var manager = root.AddComponent<GameManager>();
+
+            // Pause panel — instant show/hide
+            GameObject pausePanel = CreateMenuPanel(root.transform, "PausePanel", new Color(0f, 0f, 0f, 0.65f));
+            CreateTmpLabel(pausePanel.transform, "Title", "Paused", 72f, font, new Vector2(0f, 80f));
+            Button pauseRestart = CreateMenuButton(pausePanel.transform, "RestartButton", "Restart", font, new Vector2(0f, -40f));
+            pausePanel.SetActive(false);
+
+            // Game over panel — CanvasGroup fade
+            GameObject gameOverPanel = CreateMenuPanel(root.transform, "GameOverPanel", new Color(0f, 0f, 0f, 0.75f));
+            var canvasGroup = gameOverPanel.AddComponent<CanvasGroup>();
+            canvasGroup.alpha = 0f;
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
+            TMP_Text gameOverTitle = CreateTmpLabel(gameOverPanel.transform, "Title", "You Win!", 72f, font, new Vector2(0f, 80f));
+            Button gameOverRestart = CreateMenuButton(gameOverPanel.transform, "RestartButton", "Restart", font, new Vector2(0f, -40f));
+            gameOverPanel.SetActive(false);
+
+            var so = new SerializedObject(manager);
+            so.FindProperty("pausePanel").objectReferenceValue = pausePanel;
+            so.FindProperty("gameOverPanel").objectReferenceValue = gameOverPanel;
+            so.FindProperty("gameOverCanvasGroup").objectReferenceValue = canvasGroup;
+            so.FindProperty("gameOverTitle").objectReferenceValue = gameOverTitle;
+            so.FindProperty("pauseRestartButton").objectReferenceValue = pauseRestart;
+            so.FindProperty("gameOverRestartButton").objectReferenceValue = gameOverRestart;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
+            Object.DestroyImmediate(root);
+            return prefab;
+        }
+
+        private static void EnsureBaseSceneGameMenus(string menusPrefabPath)
+        {
+            const string scenePath = "Assets/Scenes/BaseScene.unity";
+            if (!File.Exists(scenePath))
+            {
+                Debug.LogWarning($"[NTHUGDC] Scene missing: {scenePath}");
+                return;
+            }
+
+            var menusPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(menusPrefabPath);
+            if (menusPrefab == null)
+            {
+                Debug.LogWarning($"[NTHUGDC] GameMenus prefab missing: {menusPrefabPath}");
+                return;
+            }
+
+            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+
+            // EventSystem (Input System UI module)
+            if (Object.FindFirstObjectByType<EventSystem>() == null)
+            {
+                var es = new GameObject("EventSystem");
+                es.AddComponent<EventSystem>();
+                es.AddComponent<InputSystemUIInputModule>();
+                Undo.RegisterCreatedObjectUndo(es, "Create EventSystem");
+            }
+
+            GameManager existingManager = Object.FindFirstObjectByType<GameManager>();
+            if (existingManager == null)
+            {
+                var instance = (GameObject)PrefabUtility.InstantiatePrefab(menusPrefab);
+                instance.name = "GameMenus";
+                Undo.RegisterCreatedObjectUndo(instance, "Create GameMenus");
+            }
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+        }
+
+        private static GameObject CreateMenuPanel(Transform parent, string name, Color dimColor)
+        {
+            var panel = new GameObject(name, typeof(RectTransform));
+            panel.transform.SetParent(parent, false);
+            var rt = panel.GetComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+
+            var img = panel.AddComponent<Image>();
+            img.color = dimColor;
+            img.raycastTarget = true;
+            return panel;
+        }
+
+        private static TMP_Text CreateTmpLabel(
+            Transform parent,
+            string name,
+            string text,
+            float fontSize,
+            TMP_FontAsset font,
+            Vector2 anchoredPos)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(800f, 120f);
+            rt.anchoredPosition = anchoredPos;
+
+            var tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.text = text;
+            tmp.fontSize = fontSize;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.color = Color.white;
+            tmp.raycastTarget = false;
+            if (font != null)
+                tmp.font = font;
+            return tmp;
+        }
+
+        private static Button CreateMenuButton(
+            Transform parent,
+            string name,
+            string label,
+            TMP_FontAsset font,
+            Vector2 anchoredPos)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(280f, 64f);
+            rt.anchoredPosition = anchoredPos;
+
+            var img = go.AddComponent<Image>();
+            img.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            img.type = Image.Type.Sliced;
+            img.color = new Color(0.2f, 0.55f, 0.95f, 1f);
+
+            var button = go.AddComponent<Button>();
+            button.targetGraphic = img;
+
+            var textGo = new GameObject("Text", typeof(RectTransform));
+            textGo.transform.SetParent(go.transform, false);
+            var textRt = textGo.GetComponent<RectTransform>();
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
+            textRt.offsetMin = Vector2.zero;
+            textRt.offsetMax = Vector2.zero;
+
+            var tmp = textGo.AddComponent<TextMeshProUGUI>();
+            tmp.text = label;
+            tmp.fontSize = 36f;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.color = Color.white;
+            tmp.raycastTarget = false;
+            if (font != null)
+                tmp.font = font;
+
+            return button;
         }
 
         private static Sprite GetDefaultSprite()
