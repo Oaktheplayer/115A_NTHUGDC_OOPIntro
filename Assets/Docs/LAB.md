@@ -311,6 +311,7 @@ Screen-space Overlay Prefab `EducationalContent/Prefabs/GameMenus` (wired by Set
 - **Lose**: player `Health.OnKilledEvent` → same panel with “You Lose...”
 - Game Over fade uses `CanvasGroup` + `Time.unscaledDeltaTime` so it still animates at `timeScale = 0`
 - Both panels have a **Restart** button (`SceneManager.LoadScene` current scene)
+- Top-left **enemy counter** (`EnemyCountDisplay`): label + remaining + `/` + total (from `EnemyRegistry`)
 - `GameManager` debug flags (default off): `skipGameOverPanel`, `skipPauseOnGameOver`
 - Needs **EventSystem** + Input System UI module for button clicks
 - Clone includes TextMesh Pro Essential Resources under `Assets/TextMesh Pro/` (no extra Import step for HUD/menu text)
@@ -354,6 +355,7 @@ Sprites and hierarchy live on Prefabs. Class definitions live in `Scripts/Combat
 | `VelocityWaddleTween` | Walk wiggle from velocity magnitude |
 | `MeleeSwingVisual` | Coroutine rotation tween (later student task) |
 | `SegmentedBar` / `HealthBarDisplay` / `AmmoBarDisplay` | Segmented world-space health & ammo HUD |
+| `EnemyCountDisplay` | Screen-space remaining / total enemy counter |
 | `GameManager` | Pause (Space), win/lose Game Over UI, Restart |
 | `Player*` | Ready-to-use player Prefab |
 

@@ -23,7 +23,34 @@ namespace Educational.Editor
     public static class EducationalContentSetup
     {
         private const string Root = "Assets/EducationalContent";
-        private const string AutoSetupSessionKey = "NTHUGDC_AutoGameMenusSetup_v1";
+        private const string AutoSetupSessionKey = "NTHUGDC_AutoGameMenusSetup_v2";
+
+        [InitializeOnLoadMethod]
+        private static void EnsureEnemyCountHudOnLoad()
+        {
+            EditorApplication.delayCall += TryPatchEnemyCountHud;
+        }
+
+        private static void TryPatchEnemyCountHud()
+        {
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+            {
+                EditorApplication.delayCall += TryPatchEnemyCountHud;
+                return;
+            }
+
+            const string menusPath = Root + "/Prefabs/GameMenus.prefab";
+            if (!File.Exists(menusPath))
+                return;
+
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(menusPath);
+            if (prefab == null || prefab.GetComponentInChildren<EnemyCountDisplay>(true) != null)
+                return;
+
+            PatchGameMenusPrefab(menusPath);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[NTHUGDC] Patched EnemyCountHUD onto GameMenus prefab.");
+        }
 
         [InitializeOnLoadMethod]
         private static void AutoWireGameMenusAfterCompile()
@@ -61,6 +88,9 @@ namespace Educational.Editor
                 string menusPath = $"{Root}/Prefabs/GameMenus.prefab";
                 bool needPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(menusPath) == null;
                 bool needScene = !SceneHasGameManager();
+
+                if (AssetDatabase.LoadAssetAtPath<GameObject>(menusPath) != null)
+                    PatchGameMenusPrefab(menusPath);
 
                 if (needPrefab || needScene)
                 {
@@ -718,7 +748,10 @@ namespace Educational.Editor
         {
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             if (existing != null)
-                return existing;
+            {
+                PatchGameMenusPrefab(path);
+                return AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            }
 
             TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
                 "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset");
@@ -735,6 +768,7 @@ namespace Educational.Editor
             root.AddComponent<GraphicRaycaster>();
 
             var manager = root.AddComponent<GameManager>();
+            CreateEnemyCountHud(root.transform, font);
 
             // Pause panel — instant show/hide
             GameObject pausePanel = CreateMenuPanel(root.transform, "PausePanel", new Color(0f, 0f, 0f, 0.65f));
@@ -764,6 +798,91 @@ namespace Educational.Editor
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
             Object.DestroyImmediate(root);
             return prefab;
+        }
+
+        private static void PatchGameMenusPrefab(string path)
+        {
+            GameObject contents = PrefabUtility.LoadPrefabContents(path);
+            try
+            {
+                if (contents.GetComponentInChildren<EnemyCountDisplay>(true) != null)
+                    return;
+
+                TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+                    "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset");
+                CreateEnemyCountHud(contents.transform, font);
+                PrefabUtility.SaveAsPrefabAsset(contents, path);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(contents);
+            }
+        }
+
+        private static void CreateEnemyCountHud(Transform parent, TMP_FontAsset font)
+        {
+            var hud = new GameObject("EnemyCountHUD", typeof(RectTransform));
+            hud.transform.SetParent(parent, false);
+            var rt = hud.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(24f, -24f);
+            rt.sizeDelta = new Vector2(320f, 48f);
+
+            var bg = hud.AddComponent<Image>();
+            bg.color = new Color(0f, 0f, 0f, 0.45f);
+            bg.raycastTarget = false;
+
+            var layout = hud.AddComponent<HorizontalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.spacing = 8f;
+            layout.childControlWidth = false;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+            layout.padding = new RectOffset(12, 12, 6, 6);
+
+            TMP_Text label = CreateHudCountText(hud.transform, "Label", "Enemies", 28f, font, 110f);
+            TMP_Text remaining = CreateHudCountText(hud.transform, "Remaining", "0", 32f, font, 36f);
+            TMP_Text slash = CreateHudCountText(hud.transform, "Slash", "/", 28f, font, 16f);
+            TMP_Text total = CreateHudCountText(hud.transform, "Total", "0", 32f, font, 36f);
+
+            var display = hud.AddComponent<EnemyCountDisplay>();
+            var so = new SerializedObject(display);
+            so.FindProperty("labelText").objectReferenceValue = label;
+            so.FindProperty("remainingText").objectReferenceValue = remaining;
+            so.FindProperty("slashText").objectReferenceValue = slash;
+            so.FindProperty("totalText").objectReferenceValue = total;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static TMP_Text CreateHudCountText(
+            Transform parent,
+            string name,
+            string text,
+            float fontSize,
+            TMP_FontAsset font,
+            float width)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(width, 36f);
+
+            var layoutElement = go.AddComponent<LayoutElement>();
+            layoutElement.preferredWidth = width;
+            layoutElement.minWidth = width;
+
+            var tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.text = text;
+            tmp.fontSize = fontSize;
+            tmp.alignment = TextAlignmentOptions.MidlineLeft;
+            tmp.color = Color.white;
+            tmp.raycastTarget = false;
+            if (font != null)
+                tmp.font = font;
+            return tmp;
         }
 
         private static void EnsureBaseSceneGameMenus(string menusPrefabPath)

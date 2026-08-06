@@ -13,6 +13,8 @@ namespace Enemy
         private static EnemyRegistry instance;
 
         public static int RemainingCount => Living.Count;
+        public static int TotalCount { get; private set; }
+        public static event Action OnCountChanged;
         public static event Action OnAllEnemiesDefeated;
 
         [SerializeField] private bool logWin = true;
@@ -37,7 +39,15 @@ namespace Enemy
                 return;
 
             EnsureInstance();
-            Living.Add(enemy);
+
+            if (Living.Count == 0)
+                TotalCount = 0;
+
+            if (!Living.Add(enemy))
+                return;
+
+            TotalCount++;
+            OnCountChanged?.Invoke();
         }
 
         public static void Unregister(EnemyController enemy)
@@ -47,6 +57,8 @@ namespace Enemy
 
             if (!Living.Remove(enemy))
                 return;
+
+            OnCountChanged?.Invoke();
 
             if (Living.Count == 0)
             {

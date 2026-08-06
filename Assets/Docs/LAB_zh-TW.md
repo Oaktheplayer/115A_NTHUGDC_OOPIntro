@@ -311,6 +311,7 @@ Screen-space Overlay Prefab `EducationalContent/Prefabs/GameMenus`（Setup 會�
 - **失敗**：玩家 `Health.OnKilledEvent` → 同面板「You Lose...」
 - 結算淡入用 `CanvasGroup` + `Time.unscaledDeltaTime`，在 `timeScale = 0` 時仍能播
 - 兩邊都有 **Restart** 按鈕（`SceneManager.LoadScene` 重載目前場景）
+- 左上角 **敵人計數**（`EnemyCountDisplay`）：標籤 + 剩餘 + `/` + 總數（來自 `EnemyRegistry`）
 - `GameManager` 除錯旗標（預設關閉）：`skipGameOverPanel`、`skipPauseOnGameOver`
 - 需要 **EventSystem** + Input System UI module 才能點按鈕
 - Clone 後已含 TextMesh Pro Essential Resources（`Assets/TextMesh Pro/`），選單文字不必再 Import
@@ -357,6 +358,7 @@ Sprite 與階層結構放在 Prefab；類別定義在 `Scripts/Combat/Data/`，�
 | `VelocityWaddleTween` | 依速度大小做行走小擺動 |
 | `MeleeSwingVisual` | 揮砍視覺的旋轉 tween（之後學生再做） |
 | `SegmentedBar` / `HealthBarDisplay` / `AmmoBarDisplay` | 分段 World-space 血條與彈藥 HUD |
+| `EnemyCountDisplay` | Screen-space 敵人剩餘／總數計數 |
 | `GameManager` | 暫停（Space）、勝負結算 UI、Restart |
 | `Player*` | 已完成的玩家 Prefab |
 
