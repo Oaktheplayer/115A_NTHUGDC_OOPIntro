@@ -38,5 +38,10 @@ namespace Player
 
             rb.linearVelocity = desired * moveSpeed;
         }
+
+        public void ApplyMoveSpeed(float speed)
+        {
+            moveSpeed = Mathf.Max(0f, speed);
+        }
     }
 }

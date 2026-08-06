@@ -26,6 +26,43 @@ namespace Educational.Editor
         private const string AutoSetupSessionKey = "NTHUGDC_AutoGameMenusSetup_v2";
 
         [InitializeOnLoadMethod]
+        private static void EnsurePlayerDataOnLoad()
+        {
+            EditorApplication.delayCall += TryPatchPlayerData;
+        }
+
+        private static void TryPatchPlayerData()
+        {
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+            {
+                EditorApplication.delayCall += TryPatchPlayerData;
+                return;
+            }
+
+            const string playerPath = Root + "/Prefabs/Player.prefab";
+            const string dataPath = Root + "/Data/PlayerData_Default.asset";
+            if (!File.Exists(playerPath) || !File.Exists(dataPath))
+                return;
+
+            var player = AssetDatabase.LoadAssetAtPath<GameObject>(playerPath);
+            var data = AssetDatabase.LoadAssetAtPath<PlayerData>(dataPath);
+            if (player == null || data == null)
+                return;
+
+            var controller = player.GetComponent<PlayerController>();
+            if (controller != null)
+            {
+                var so = new SerializedObject(controller);
+                if (so.FindProperty("data").objectReferenceValue != null)
+                    return;
+            }
+
+            EnsurePlayerData(playerPath, data);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[NTHUGDC] Patched PlayerData onto Player prefab.");
+        }
+
+        [InitializeOnLoadMethod]
         private static void EnsureEnemyCountHudOnLoad()
         {
             EditorApplication.delayCall += TryPatchEnemyCountHud;
@@ -136,13 +173,15 @@ namespace Educational.Editor
             var pistolData = CreateWeaponData($"{Root}/Data/WeaponData_Pistol.asset", "Pistol", 1, 0.3f, 0.1f, 3, 1.2f);
             var axeData = CreateWeaponData($"{Root}/Data/WeaponData_Axe.asset", "Axe", 2, 0.7f, 0.18f, 3, 1.5f);
             var enemyData = CreateEnemyData($"{Root}/Data/EnemyData_Basic.asset", 3, 2.5f, 5f);
+            var playerData = CreatePlayerData($"{Root}/Data/PlayerData_Default.asset", 5, 5f);
 
             var ranged = CreateRangedWeaponPrefab($"{Root}/Prefabs/WeaponTemplate_Ranged.prefab", pistolData, bulletData);
             var melee = CreateMeleeWeaponPrefab($"{Root}/Prefabs/WeaponTemplate_Melee.prefab", axeData);
             var segment = CreateUiSegmentPrefab($"{Root}/Prefabs/UISegment.prefab");
             var uis = EnsureUisPrefab($"{Root}/Prefabs/UIs.prefab", segment);
-            CreatePlayerPrefab($"{Root}/Prefabs/Player.prefab", ranged);
+            CreatePlayerPrefab($"{Root}/Prefabs/Player.prefab", ranged, playerData);
             CreateEnemyPrefab($"{Root}/Prefabs/EnemyTemplate.prefab", enemyData, melee);
+            EnsurePlayerData($"{Root}/Prefabs/Player.prefab", playerData);
             EnsureCharacterHud($"{Root}/Prefabs/Player.prefab", uis);
             EnsureCharacterHud($"{Root}/Prefabs/EnemyTemplate.prefab", uis);
             EnsureGameMenusPrefab($"{Root}/Prefabs/GameMenus.prefab");
@@ -241,6 +280,19 @@ namespace Educational.Editor
             data.maxHealth = hp;
             data.moveSpeed = speed;
             data.aggroRange = aggro;
+            AssetDatabase.CreateAsset(data, path);
+            return data;
+        }
+
+        private static PlayerData CreatePlayerData(string path, int hp, float speed)
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<PlayerData>(path);
+            if (existing != null)
+                return existing;
+
+            var data = ScriptableObject.CreateInstance<PlayerData>();
+            data.maxHealth = hp;
+            data.moveSpeed = speed;
             AssetDatabase.CreateAsset(data, path);
             return data;
         }
@@ -625,7 +677,7 @@ namespace Educational.Editor
             }
         }
 
-        private static void CreatePlayerPrefab(string path, GameObject rangedWeaponPrefab)
+        private static void CreatePlayerPrefab(string path, GameObject rangedWeaponPrefab, PlayerData data)
         {
             if (AssetDatabase.LoadAssetAtPath<GameObject>(path) != null)
                 return;
@@ -642,10 +694,15 @@ namespace Educational.Editor
 
             root.AddComponent<Health>();
             root.AddComponent<PlayerMover>();
+            var controller = root.AddComponent<PlayerController>();
             root.AddComponent<PlayerAim>();
             root.AddComponent<PlayerWeaponHolder>();
             root.AddComponent<PlayerAttacker>();
             root.AddComponent<PlayerPickup>();
+
+            var controllerSo = new SerializedObject(controller);
+            controllerSo.FindProperty("data").objectReferenceValue = data;
+            controllerSo.ApplyModifiedPropertiesWithoutUndo();
 
             var playerInput = root.AddComponent<PlayerInput>();
             var actions = AssetDatabase.LoadAssetAtPath<InputActionAsset>("Assets/InputSystem_Actions.inputactions");
@@ -684,6 +741,33 @@ namespace Educational.Editor
 
             PrefabUtility.SaveAsPrefabAsset(root, path);
             Object.DestroyImmediate(root);
+        }
+
+        private static void EnsurePlayerData(string characterPath, PlayerData data)
+        {
+            var character = AssetDatabase.LoadAssetAtPath<GameObject>(characterPath);
+            if (character == null || data == null)
+                return;
+
+            string assetPath = AssetDatabase.GetAssetPath(character);
+            GameObject root = PrefabUtility.LoadPrefabContents(assetPath);
+
+            try
+            {
+                var controller = root.GetComponent<PlayerController>();
+                if (controller == null)
+                    controller = root.AddComponent<PlayerController>();
+
+                var so = new SerializedObject(controller);
+                so.FindProperty("data").objectReferenceValue = data;
+                so.ApplyModifiedPropertiesWithoutUndo();
+
+                PrefabUtility.SaveAsPrefabAsset(root, assetPath);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
         }
 
         private static void CreateEnemyPrefab(string path, EnemyData data, GameObject meleeWeaponPrefab)

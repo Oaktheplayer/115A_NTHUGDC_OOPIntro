@@ -25,7 +25,7 @@ Assets/
 1. Open Unity and wait for scripts to compile.
 2. Menu: **NTHUGDC → Setup Educational Content**
 3. This creates `Assets/EducationalContent/` with:
-   - `WeaponData_Pistol`, `WeaponData_Axe`, `ProjectileData_Bullet`, `EnemyData_Basic`
+   - `WeaponData_Pistol`, `WeaponData_Axe`, `ProjectileData_Bullet`, `EnemyData_Basic`, `PlayerData_Default`
    - Prefabs: `Player`, `EnemyTemplate`, `WeaponTemplate_Ranged`, `WeaponTemplate_Melee`, `Projectile_Bullet`, `UISegment`, `UIs`, `GameMenus`
 4. Drag `Player` into `BaseScene`. Place a few `EnemyTemplate` instances and a few weapon prefabs on the ground.
 5. Replace placeholder sprites with Kenney desert-shooter art on each Prefab’s `Sprite` child.
@@ -151,6 +151,7 @@ flowchart LR
 | hurtboxActiveDuration | `WeaponData` | `MeleeWeapon` only |
 | prefab, speed, lifetime | `ProjectileData` | `RangedWeapon` component field (not on WeaponData) |
 | maxHealth, moveSpeed, aggroRange | `EnemyData` | `EnemyController` → Health / Movement / AggroZone |
+| maxHealth, moveSpeed | `PlayerData` | `PlayerController` → Health / PlayerMover |
 
 Sprites and hierarchy stay on **Prefabs**. SO assets only store **numbers and references**.
 
@@ -341,6 +342,7 @@ Screen-space Overlay Prefab `EducationalContent/Prefabs/GameMenus` (wired by Set
 | `WeaponData` | damage, attackCooldown, maxAmmo, reloadTimePerAmmo, hurtbox duration |
 | `ProjectileData` | bullet prefab, speed, lifetime — referenced by `RangedWeapon` only |
 | `EnemyData` | maxHealth, moveSpeed, aggroRange |
+| `PlayerData` | maxHealth, moveSpeed |
 
 Sprites and hierarchy live on Prefabs. Class definitions live in `Scripts/Combat/Data/`; asset instances live in `EducationalContent/Data/`.
 
@@ -357,6 +359,7 @@ Sprites and hierarchy live on Prefabs. Class definitions live in `Scripts/Combat
 | `SegmentedBar` / `HealthBarDisplay` / `AmmoBarDisplay` | Segmented world-space health & ammo HUD |
 | `EnemyCountDisplay` | Screen-space remaining / total enemy counter |
 | `GameManager` | Pause (Space), win/lose Game Over UI, Restart |
+| `PlayerController` | Applies `PlayerData` to Health / PlayerMover |
 | `Player*` | Ready-to-use player Prefab |
 
 Legacy RangeDetect / old projectile strategies live under `Assets/Scripts/Optional/` and are not required for the lab.

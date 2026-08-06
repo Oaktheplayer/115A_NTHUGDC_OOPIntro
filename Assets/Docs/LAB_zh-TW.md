@@ -25,7 +25,7 @@ Assets/
 1. 開 Unity 並等腳本編譯完成。
 2. 進入選單：**NTHUGDC → Setup Educational Content**
 3. 這會建立 `Assets/EducationalContent/`，包含：
-   - `WeaponData_Pistol`、`WeaponData_Axe`、`ProjectileData_Bullet`、`EnemyData_Basic`
+   - `WeaponData_Pistol`、`WeaponData_Axe`、`ProjectileData_Bullet`、`EnemyData_Basic`、`PlayerData_Default`
    - Prefab：`Player`、`EnemyTemplate`、`WeaponTemplate_Ranged`、`WeaponTemplate_Melee`、`Projectile_Bullet`、`UISegment`、`UIs`、`GameMenus`
 4. 將 `Player` 拖到 `BaseScene`。放入幾個 `EnemyTemplate` 與數把地上武器（OnGround）。
 5. 把各 Prefab 的 `Sprite` 子物件換成 Kenney 的沙漠射擊素材。
@@ -151,6 +151,7 @@ flowchart LR
 | hurtboxActiveDuration | `WeaponData` | 僅 `MeleeWeapon` |
 | prefab、speed、lifetime | `ProjectileData` | `RangedWeapon` 元件欄位（不在 WeaponData 上） |
 | maxHealth、moveSpeed、aggroRange | `EnemyData` | `EnemyController` → Health／Movement／AggroZone |
+| maxHealth、moveSpeed | `PlayerData` | `PlayerController` → Health／PlayerMover |
 
 Sprite 與階層留在 **Prefab**。SO 資產只存**數字與引用**。
 
@@ -344,6 +345,7 @@ Screen-space Overlay Prefab `EducationalContent/Prefabs/GameMenus`（Setup 會�
 | `WeaponData` | damage、attackCooldown、maxAmmo、reloadTimePerAmmo、近戰 hurtbox 時長 |
 | `ProjectileData` | bullet prefab、speed、lifetime（僅由 `RangedWeapon` 參考） |
 | `EnemyData` | maxHealth、moveSpeed、aggroRange |
+| `PlayerData` | maxHealth、moveSpeed |
 
 Sprite 與階層結構放在 Prefab；類別定義在 `Scripts/Combat/Data/`，資產實例放在 `EducationalContent/Data/`。
 
@@ -360,6 +362,7 @@ Sprite 與階層結構放在 Prefab；類別定義在 `Scripts/Combat/Data/`，�
 | `SegmentedBar` / `HealthBarDisplay` / `AmmoBarDisplay` | 分段 World-space 血條與彈藥 HUD |
 | `EnemyCountDisplay` | Screen-space 敵人剩餘／總數計數 |
 | `GameManager` | 暫停（Space）、勝負結算 UI、Restart |
+| `PlayerController` | 將 `PlayerData` 套用到 Health／PlayerMover |
 | `Player*` | 已完成的玩家 Prefab |
 
 舊版 RangeDetect／舊彈道策略在 `Assets/Scripts/Optional/`，本實驗不需要。
