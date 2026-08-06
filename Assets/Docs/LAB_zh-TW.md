@@ -1,7 +1,7 @@
 # OOP Lab — Prefab、ScriptableObject 與繼承
 
 ## 目標
-清場：找到並擊敗場上所有敵人。操作：**WASD** 移動、**左鍵**攻擊、**E** 與地上的武器交換。
+清場：找到並擊敗場上所有敵人。操作：**WASD** 移動、**按住左鍵**攻擊（受彈藥限制）、**E** 與地上的武器交換。
 
 ## 專案資料夾結構
 
@@ -111,7 +111,7 @@ flowchart TB
 **怎麼讀這張圖：**
 1. 某一方決定攻擊（玩家按左鍵，或敵人 AI）。
 2. 都呼叫同一個 API：`Weapon.Attack(direction, target)`。
-3. `Weapon` 用 `WeaponData` 檢查**冷卻**，再呼叫子類別。
+3. `Weapon` 用 `WeaponData` 檢查**彈藥 + 攻擊間隔**，再呼叫子類別。
 4. 子類別要嘛生成子彈，要嘛打開近戰 HurtBox。
 5. 傷害最後經 `Damager`（加上**目標 Tag** 過濾）進到 `Health`。
 
@@ -144,7 +144,7 @@ flowchart LR
 
 | 資料 | 放在哪 | 誰使用 |
 |------|--------|--------|
-| damage、attackCooldown | `WeaponData` | 任何 `Weapon` |
+| damage、attackCooldown、maxAmmo、reloadTimePerAmmo | `WeaponData` | 任何 `Weapon` |
 | hurtboxActiveDuration | `WeaponData` | 僅 `MeleeWeapon` |
 | prefab、speed、lifetime | `ProjectileData` | `RangedWeapon` 元件欄位（不在 WeaponData 上） |
 | maxHealth、moveSpeed、aggroRange | `EnemyData` | `EnemyController` → Health／Movement／AggroZone |
@@ -166,7 +166,8 @@ sequenceDiagram
 
   Click->>Aim: 讀取 AimDirection
   Click->>W: Attack(direction)
-  W->>WD: 檢查 attackCooldown
+  W->>WD: 檢查彈藥與 attackCooldown
+  W->>W: 消耗 1 發並重置回彈計時
   W->>PD: 讀取 prefab speed lifetime
   W->>Owner: 讀取 ValidTargetTag
   W->>Bullet: Instantiate prefab
@@ -189,7 +190,8 @@ sequenceDiagram
   participant HP as Health
 
   Caller->>W: Attack(direction)
-  W->>WD: 檢查冷卻
+  W->>WD: 檢查彈藥與冷卻
+  W->>W: 消耗 1 發並重置回彈計時
   W->>Visual: PlaySwing 本地揮砍弧
   W->>HB: SetActive true 持續 hurtboxActiveDuration
   Note over HB: 揮砍動畫可能揮空
@@ -261,7 +263,25 @@ classDiagram
   Weapon <|-- MeleeWeapon
 ```
 
-共用行為（冷卻、裝備／丟下、敵我 Tag）在 `Weapon`；不同攻擊方式在子類別——這就是本實驗的 OOP 繼承重點。
+共用行為（彈藥、攻擊間隔、裝備／丟下、敵我 Tag）在 `Weapon`；不同攻擊方式在子類別——這就是本實驗的 OOP 繼承重點。
+
+### 彈藥與按住連發（Brawl Stars 風格）
+
+近戰與遠程都使用 `WeaponData` 上的同一套彈匣：
+
+| 欄位 | 意義 |
+|------|------|
+| `maxAmmo` | 彈匣容量（例如 3） |
+| `reloadTimePerAmmo` | 未滿時回 **1 發** 所需秒數 |
+| `attackCooldown` | 兩次攻擊之間的最短間隔 |
+
+執行時狀態在 `Weapon` 實例上（不寫進 SO）：
+
+- `CurrentAmmo`、`MaxAmmo`、`ReloadProgress01`、`IsAmmoFull`、`DisplayName` — 給未來 HUD 讀取
+- 成功的 `Attack` 消耗 1 發，並**重置**回彈計時
+- 裝備中且未滿彈時，`Update` 會一發一發回彈
+- **按住左鍵**即可在有彈且間隔允許時連續攻擊
+- 敵人也走同一個 `IsReady`：有彈就連打，空彈時繼續追擊並回彈，回出子彈再開火
 
 ## 學生任務
 
@@ -288,7 +308,7 @@ classDiagram
 ## ScriptableObjects 會改變什麼
 | 資產 | 影響 |
 |------|------|
-| `WeaponData` | damage、attackCooldown、近戰用 hurtbox 持續時間（近戰與遠程共用） |
+| `WeaponData` | damage、attackCooldown、maxAmmo、reloadTimePerAmmo、近戰 hurtbox 時長 |
 | `ProjectileData` | bullet prefab、speed、lifetime（僅由 `RangedWeapon` 參考） |
 | `EnemyData` | maxHealth、moveSpeed、aggroRange |
 
@@ -297,7 +317,7 @@ Sprite 與階層結構放在 Prefab；類別定義在 `Scripts/Combat/Data/`，�
 ## 主要教師提供的程式（在 `Assets/Scripts/`）
 | Script | 角色 |
 |--------|------|
-| `Weapon` / `RangedWeapon` / `MeleeWeapon` | OOP 繼承 + 從 `WeaponData` 讀 cooldown |
+| `Weapon` / `RangedWeapon` / `MeleeWeapon` | OOP 繼承 + 從 `WeaponData` 讀彈藥／攻擊間隔 |
 | `WeaponOwner` | 設定要打的目標標籤（Player→Enemy、Enemy→Player）；子彈會繼承設定 |
 | `HurtBox` | 近戰在有效幀偵測命中並造成傷害 |
 | `EnemyMovement` | 只做 Rigidbody2D velocity 移動（stun／knockback 之後再擴充） |

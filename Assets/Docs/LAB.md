@@ -1,7 +1,7 @@
 # OOP Lab — Prefab, ScriptableObject, Inheritance
 
 ## Goal
-Clear the field: find and defeat every enemy. Controls: **WASD** move, **Left Mouse** attack, **E** swap weapon with one on the ground.
+Clear the field: find and defeat every enemy. Controls: **WASD** move, **hold Left Mouse** to attack (ammo-limited), **E** swap weapon with one on the ground.
 
 ## Project layout
 
@@ -111,7 +111,7 @@ flowchart TB
 **Read it this way:**
 1. Something decides to attack (player click, or enemy AI).
 2. It calls the same API: `Weapon.Attack(direction, target)`.
-3. `Weapon` checks **cooldown** from `WeaponData`, then calls the subclass.
+3. `Weapon` checks **ammo + fire interval** from `WeaponData`, then calls the subclass.
 4. Subclass either spawns a bullet or opens a melee HurtBox.
 5. Damage finally reaches `Health` through `Damager` (and a **target tag** filter).
 
@@ -144,7 +144,7 @@ flowchart LR
 
 | Data | Lives on | Used by |
 |------|----------|---------|
-| damage, attackCooldown | `WeaponData` | any `Weapon` |
+| damage, attackCooldown, maxAmmo, reloadTimePerAmmo | `WeaponData` | any `Weapon` |
 | hurtboxActiveDuration | `WeaponData` | `MeleeWeapon` only |
 | prefab, speed, lifetime | `ProjectileData` | `RangedWeapon` component field (not on WeaponData) |
 | maxHealth, moveSpeed, aggroRange | `EnemyData` | `EnemyController` → Health / Movement / AggroZone |
@@ -166,7 +166,8 @@ sequenceDiagram
 
   Click->>Aim: read AimDirection
   Click->>W: Attack(direction)
-  W->>WD: check attackCooldown
+  W->>WD: check ammo and attackCooldown
+  W->>W: consume 1 ammo and reset reload timer
   W->>PD: read prefab speed lifetime
   W->>Owner: read ValidTargetTag
   W->>Bullet: Instantiate prefab
@@ -189,7 +190,8 @@ sequenceDiagram
   participant HP as Health
 
   Caller->>W: Attack(direction)
-  W->>WD: check cooldown
+  W->>WD: check ammo and cooldown
+  W->>W: consume 1 ammo and reset reload timer
   W->>Visual: PlaySwing local arc
   W->>HB: SetActive true for hurtboxActiveDuration
   Note over HB: swing animation may whiff
@@ -261,7 +263,25 @@ classDiagram
   Weapon <|-- MeleeWeapon
 ```
 
-Shared behavior (cooldown, equip/drop, owner tag) lives in `Weapon`. Different attack behavior lives in subclasses — that is the OOP inheritance lesson of this lab.
+Shared behavior (ammo, fire interval, equip/drop, owner tag) lives in `Weapon`. Different attack behavior lives in subclasses — that is the OOP inheritance lesson of this lab.
+
+### Ammo and hold-to-fire (Brawl Stars style)
+
+Both melee and ranged use the same magazine on `WeaponData`:
+
+| Field | Meaning |
+|-------|---------|
+| `maxAmmo` | Magazine size (e.g. 3) |
+| `reloadTimePerAmmo` | Seconds to regain **one** ammo while not full |
+| `attackCooldown` | Minimum time between two attacks |
+
+Runtime state lives on the `Weapon` instance (not in the SO):
+
+- `CurrentAmmo`, `MaxAmmo`, `ReloadProgress01`, `IsAmmoFull`, `DisplayName` — for a future HUD
+- Successful `Attack` spends 1 ammo and **resets** the reload timer
+- While equipped and not full, `Update` regenerates ammo one-by-one
+- **Hold left mouse** to keep attacking whenever ammo and fire interval allow
+- Enemies use the same `IsReady` gate: they burst while they have ammo, keep chasing while reloading, then fire again
 
 ## Student assignments
 
@@ -285,7 +305,7 @@ Shared behavior (cooldown, equip/drop, owner tag) lives in `Weapon`. Different a
 ## What ScriptableObjects change
 | Asset | Affects |
 |-------|---------|
-| `WeaponData` | damage, attackCooldown, hurtbox duration (shared by melee & ranged) |
+| `WeaponData` | damage, attackCooldown, maxAmmo, reloadTimePerAmmo, hurtbox duration |
 | `ProjectileData` | bullet prefab, speed, lifetime — referenced by `RangedWeapon` only |
 | `EnemyData` | maxHealth, moveSpeed, aggroRange |
 
@@ -294,7 +314,7 @@ Sprites and hierarchy live on Prefabs. Class definitions live in `Scripts/Combat
 ## Key scripts (teacher-provided, under `Assets/Scripts/`)
 | Script | Role |
 |--------|------|
-| `Weapon` / `RangedWeapon` / `MeleeWeapon` | OOP inheritance + cooldown from `WeaponData` |
+| `Weapon` / `RangedWeapon` / `MeleeWeapon` | OOP inheritance + ammo / fire interval from `WeaponData` |
 | `WeaponOwner` | Sets target tag (Player→Enemy, Enemy→Player); bullets inherit tag |
 | `HurtBox` | Melee hit detection while active |
 | `EnemyMovement` | Rigidbody2D velocity only (stun/knockback hooks later) |

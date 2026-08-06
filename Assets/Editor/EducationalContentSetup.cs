@@ -25,8 +25,8 @@ namespace Educational.Editor
             var projectile = CreateProjectilePrefab($"{Root}/Prefabs/Projectile_Bullet.prefab");
             var bulletData = CreateProjectileData($"{Root}/Data/ProjectileData_Bullet.asset", projectile, 14f, 3f);
 
-            var pistolData = CreateWeaponData($"{Root}/Data/WeaponData_Pistol.asset", "Pistol", 1, 0.3f, 0.1f);
-            var axeData = CreateWeaponData($"{Root}/Data/WeaponData_Axe.asset", "Axe", 2, 0.7f, 0.18f);
+            var pistolData = CreateWeaponData($"{Root}/Data/WeaponData_Pistol.asset", "Pistol", 1, 0.3f, 0.1f, 3, 1.2f);
+            var axeData = CreateWeaponData($"{Root}/Data/WeaponData_Axe.asset", "Axe", 2, 0.7f, 0.18f, 3, 1.5f);
             var enemyData = CreateEnemyData($"{Root}/Data/EnemyData_Basic.asset", 3, 2.5f, 5f);
 
             var ranged = CreateRangedWeaponPrefab($"{Root}/Prefabs/WeaponTemplate_Ranged.prefab", pistolData, bulletData);
@@ -74,17 +74,34 @@ namespace Educational.Editor
             return data;
         }
 
-        private static WeaponData CreateWeaponData(string path, string displayName, int damage, float cooldown, float hurtDuration)
+        private static WeaponData CreateWeaponData(
+            string path,
+            string displayName,
+            int damage,
+            float cooldown,
+            float hurtDuration,
+            int maxAmmo,
+            float reloadTimePerAmmo)
         {
             var existing = AssetDatabase.LoadAssetAtPath<WeaponData>(path);
             if (existing != null)
+            {
+                // Backfill ammo fields on older assets.
+                if (existing.maxAmmo < 1)
+                    existing.maxAmmo = maxAmmo;
+                if (existing.reloadTimePerAmmo < 0.05f)
+                    existing.reloadTimePerAmmo = reloadTimePerAmmo;
+                EditorUtility.SetDirty(existing);
                 return existing;
+            }
 
             var data = ScriptableObject.CreateInstance<WeaponData>();
             data.displayName = displayName;
             data.damage = damage;
             data.attackCooldown = cooldown;
             data.hurtboxActiveDuration = hurtDuration;
+            data.maxAmmo = maxAmmo;
+            data.reloadTimePerAmmo = reloadTimePerAmmo;
             AssetDatabase.CreateAsset(data, path);
             return data;
         }

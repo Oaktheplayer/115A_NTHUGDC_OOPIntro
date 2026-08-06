@@ -8,6 +8,9 @@ namespace Player
     {
         [SerializeField] private PlayerAim aim;
         [SerializeField] private PlayerWeaponHolder weaponHolder;
+        [SerializeField] private PlayerInput playerInput;
+
+        private InputAction attackAction;
 
         private void Awake()
         {
@@ -15,14 +18,38 @@ namespace Player
                 aim = GetComponent<PlayerAim>();
             if (weaponHolder == null)
                 weaponHolder = GetComponent<PlayerWeaponHolder>();
+            if (playerInput == null)
+                playerInput = GetComponent<PlayerInput>();
+
+            if (playerInput != null && playerInput.actions != null)
+                attackAction = playerInput.actions.FindAction("Attack", throwIfNotFound: false);
         }
 
-        public void OnAttack(InputValue value)
+        private void OnEnable()
         {
-            if (!value.isPressed)
+            attackAction?.Enable();
+        }
+
+        private void OnDisable()
+        {
+            attackAction?.Disable();
+        }
+
+        private void Update()
+        {
+            if (!IsAttackHeld())
                 return;
 
             TryAttack();
+        }
+
+        private bool IsAttackHeld()
+        {
+            if (attackAction != null)
+                return attackAction.IsPressed();
+
+            // Fallback if PlayerInput / action map is missing.
+            return Mouse.current != null && Mouse.current.leftButton.isPressed;
         }
 
         public void TryAttack()

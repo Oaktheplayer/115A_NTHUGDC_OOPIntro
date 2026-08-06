@@ -16,3 +16,5 @@ MonoBehaviour:
   damage: 1
   attackCooldown: 0.3
   hurtboxActiveDuration: 0.1
+  maxAmmo: 3
+  reloadTimePerAmmo: 1.2
