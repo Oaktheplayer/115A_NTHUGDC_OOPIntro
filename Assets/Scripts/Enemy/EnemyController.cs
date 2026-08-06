@@ -34,13 +34,10 @@ namespace Enemy
             if (aggroZone == null)
                 aggroZone = GetComponentInChildren<AggroZone>(true);
 
-            if (data != null)
-            {
-                if (health != null)
-                    health.ApplyMaxHealth(data.maxHealth);
-                if (aggroZone != null)
-                    aggroZone.SetRadius(data.aggroRange);
-            }
+            if (health != null)
+                health.ApplyMaxHealth(data.maxHealth);
+            if (aggroZone != null)
+                aggroZone.SetRadius(data.aggroRange);
 
             if (weapon != null && weaponPivot != null)
                 weaponPivot.Equip(weapon, WeaponOwner.EnemyTag);
@@ -76,7 +73,7 @@ namespace Enemy
 
         private void FixedUpdate()
         {
-            if (state != State.Aggro || player == null || data == null)
+            if (state != State.Aggro || player == null)
             {
                 movement?.Stop();
                 return;
