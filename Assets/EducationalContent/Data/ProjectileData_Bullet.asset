@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: ProjectileData_Bullet
   m_EditorClassIdentifier: Assembly-CSharp::Combat.ProjectileData
   prefab: {fileID: 1657288263217746407, guid: 377dedaeb099a0a4187af0e983e31822, type: 3}
-  speed: 14
-  lifetime: 3
+  speed: 10
+  lifetime: 1.5
