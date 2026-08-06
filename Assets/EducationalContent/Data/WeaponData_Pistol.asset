@@ -16,6 +16,3 @@ MonoBehaviour:
   damage: 1
   attackCooldown: 0.3
   hurtboxActiveDuration: 0.1
-  projectilePrefab: {fileID: 1657288263217746407, guid: 377dedaeb099a0a4187af0e983e31822, type: 3}
-  projectileSpeed: 14
-  projectileLifetime: 3

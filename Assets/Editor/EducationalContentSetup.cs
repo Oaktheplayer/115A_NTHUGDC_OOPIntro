@@ -22,15 +22,14 @@ namespace Educational.Editor
         {
             EnsureFolders();
 
-            var pistolData = CreateWeaponData($"{Root}/Data/WeaponData_Pistol.asset", "Pistol", 1, 0.3f, 0.1f, 14f);
-            var axeData = CreateWeaponData($"{Root}/Data/WeaponData_Axe.asset", "Axe", 2, 0.7f, 0.18f, 0f);
+            var projectile = CreateProjectilePrefab($"{Root}/Prefabs/Projectile_Bullet.prefab");
+            var bulletData = CreateProjectileData($"{Root}/Data/ProjectileData_Bullet.asset", projectile, 14f, 3f);
+
+            var pistolData = CreateWeaponData($"{Root}/Data/WeaponData_Pistol.asset", "Pistol", 1, 0.3f, 0.1f);
+            var axeData = CreateWeaponData($"{Root}/Data/WeaponData_Axe.asset", "Axe", 2, 0.7f, 0.18f);
             var enemyData = CreateEnemyData($"{Root}/Data/EnemyData_Basic.asset", 3, 2.5f, 5f);
 
-            var projectile = CreateProjectilePrefab($"{Root}/Prefabs/Projectile_Bullet.prefab");
-            pistolData.projectilePrefab = projectile;
-            EditorUtility.SetDirty(pistolData);
-
-            var ranged = CreateRangedWeaponPrefab($"{Root}/Prefabs/WeaponTemplate_Ranged.prefab", pistolData);
+            var ranged = CreateRangedWeaponPrefab($"{Root}/Prefabs/WeaponTemplate_Ranged.prefab", pistolData, bulletData);
             var melee = CreateMeleeWeaponPrefab($"{Root}/Prefabs/WeaponTemplate_Melee.prefab", axeData);
             CreatePlayerPrefab($"{Root}/Prefabs/Player.prefab", ranged);
             CreateEnemyPrefab($"{Root}/Prefabs/EnemyTemplate.prefab", enemyData, melee);
@@ -54,7 +53,28 @@ namespace Educational.Editor
                 AssetDatabase.CreateFolder(parent, name);
         }
 
-        private static WeaponData CreateWeaponData(string path, string displayName, int damage, float cooldown, float hurtDuration, float projectileSpeed)
+        private static ProjectileData CreateProjectileData(string path, GameObject prefab, float speed, float lifetime)
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<ProjectileData>(path);
+            if (existing != null)
+            {
+                if (existing.prefab == null && prefab != null)
+                {
+                    existing.prefab = prefab;
+                    EditorUtility.SetDirty(existing);
+                }
+                return existing;
+            }
+
+            var data = ScriptableObject.CreateInstance<ProjectileData>();
+            data.prefab = prefab;
+            data.speed = speed;
+            data.lifetime = lifetime;
+            AssetDatabase.CreateAsset(data, path);
+            return data;
+        }
+
+        private static WeaponData CreateWeaponData(string path, string displayName, int damage, float cooldown, float hurtDuration)
         {
             var existing = AssetDatabase.LoadAssetAtPath<WeaponData>(path);
             if (existing != null)
@@ -65,8 +85,6 @@ namespace Educational.Editor
             data.damage = damage;
             data.attackCooldown = cooldown;
             data.hurtboxActiveDuration = hurtDuration;
-            data.projectileSpeed = projectileSpeed;
-            data.projectileLifetime = 3f;
             AssetDatabase.CreateAsset(data, path);
             return data;
         }
@@ -115,11 +133,25 @@ namespace Educational.Editor
             return prefab;
         }
 
-        private static GameObject CreateRangedWeaponPrefab(string path, WeaponData data)
+        private static GameObject CreateRangedWeaponPrefab(string path, WeaponData data, ProjectileData projectileData)
         {
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             if (existing != null)
+            {
+                var existingWeapon = existing.GetComponent<RangedWeapon>();
+                if (existingWeapon != null && projectileData != null)
+                {
+                    var existingSo = new SerializedObject(existingWeapon);
+                    var projProp = existingSo.FindProperty("projectileData");
+                    if (projProp != null && projProp.objectReferenceValue == null)
+                    {
+                        projProp.objectReferenceValue = projectileData;
+                        existingSo.ApplyModifiedPropertiesWithoutUndo();
+                        EditorUtility.SetDirty(existing);
+                    }
+                }
                 return existing;
+            }
 
             var root = new GameObject("WeaponTemplate_Ranged");
             root.AddComponent<WeaponOwner>();
@@ -146,6 +178,7 @@ namespace Educational.Editor
 
             var so = new SerializedObject(weapon);
             so.FindProperty("data").objectReferenceValue = data;
+            so.FindProperty("projectileData").objectReferenceValue = projectileData;
             so.FindProperty("hurtBoxObject").objectReferenceValue = hurt;
             var ownerProp = so.FindProperty("owner");
             if (ownerProp != null)

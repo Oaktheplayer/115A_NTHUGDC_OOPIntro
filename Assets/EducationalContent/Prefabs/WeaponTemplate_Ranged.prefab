@@ -65,6 +65,7 @@ MonoBehaviour:
   data: {fileID: 11400000, guid: 4ce003f6f1a747a47af7f56a46325ddf, type: 2}
   owner: {fileID: 2061550830742814059}
   hurtBoxObject: {fileID: 4398213121002136895}
+  projectileData: {fileID: 11400000, guid: b2c3d4e5f6789012345678abcdef0123, type: 2}
   spawnPoint: {fileID: 0}
   spawnOffset: {x: 0, y: 0, z: 0}
 --- !u!114 &2746891106226189861

@@ -4,41 +4,39 @@ namespace Combat
 {
     public class RangedWeapon : Weapon
     {
+        [SerializeField] private ProjectileData projectileData;
         [SerializeField] private Transform spawnPoint;
         [SerializeField] private Vector3 spawnOffset;
 
         protected override void PerformAttack(Vector2 direction, Transform target)
         {
-            if (data == null || data.projectilePrefab == null)
+            if (projectileData == null || projectileData.prefab == null)
             {
-                Debug.LogWarning($"[{name}] RangedWeapon missing WeaponData projectilePrefab.");
+                Debug.LogWarning($"[{name}] RangedWeapon missing ProjectileData or prefab.");
                 return;
             }
 
             Vector3 position = spawnPoint != null ? spawnPoint.position : transform.position;
             position += spawnOffset;
 
-            GameObject instance = Instantiate(data.projectilePrefab, position, Quaternion.identity);
+            GameObject instance = Instantiate(projectileData.prefab, position, Quaternion.identity);
             var projectile = instance.GetComponent<ProjectileMover>();
             var hit = instance.GetComponent<ProjectileHit>();
 
-            float speed = data.projectileSpeed;
-            float lifetime = data.projectileLifetime;
-
             if (hit != null)
-            {
-                hit.Initialize(owner.ValidTargetTag, data.damage);
-            }
+                hit.Initialize(owner.ValidTargetTag, data != null ? data.damage : 1);
 
             if (projectile != null)
             {
-                projectile.Initialize(direction, speed, lifetime);
+                projectile.Initialize(
+                    direction: direction,
+                    speed: projectileData.speed,
+                    lifetime: projectileData.lifetime
+                );
             }
-            else
+            else if (instance.TryGetComponent(out Rigidbody2D rb))
             {
-                // Fallback: push with Rigidbody2D if present.
-                if (instance.TryGetComponent(out Rigidbody2D rb))
-                    rb.linearVelocity = direction * speed;
+                rb.linearVelocity = direction * projectileData.speed;
             }
         }
 
