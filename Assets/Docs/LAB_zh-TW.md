@@ -26,7 +26,7 @@ Assets/
 2. 進入選單：**NTHUGDC → Setup Educational Content**
 3. 這會建立 `Assets/EducationalContent/`，包含：
    - `WeaponData_Pistol`、`WeaponData_Axe`、`ProjectileData_Bullet`、`EnemyData_Basic`
-   - Prefab：`Player`、`EnemyTemplate`、`WeaponTemplate_Ranged`、`WeaponTemplate_Melee`、`Projectile_Bullet`
+   - Prefab：`Player`、`EnemyTemplate`、`WeaponTemplate_Ranged`、`WeaponTemplate_Melee`、`Projectile_Bullet`、`UISegment`、`UIs`
 4. 將 `Player` 拖到 `BaseScene`。放入幾個 `EnemyTemplate` 與數把地上武器（OnGround）。
 5. 把各 Prefab 的 `Sprite` 子物件換成 Kenney 的沙漠射擊素材。
 
@@ -35,6 +35,7 @@ Assets/
 ### Enemy
 ```
 Enemy
+├── UIs             （共用 HUD Prefab：血條 + 彈藥條）
 ├── Sprite          (+ VelocityWaddleTween)
 ├── AggroZone       (CircleCollider2D 觸發器)
 └── WeaponPivot     (+ WeaponPivot；Aggro 後朝向玩家)
@@ -46,6 +47,7 @@ Enemy
 ### Player
 ```
 Player
+├── UIs             （同一個共用 HUD Prefab）
 ├── Sprite          (+ VelocityWaddleTween)
 └── WeaponPivot     (+ WeaponPivot；朝向滑鼠)
     └── Weapon
@@ -277,11 +279,27 @@ classDiagram
 
 執行時狀態在 `Weapon` 實例上（不寫進 SO）：
 
-- `CurrentAmmo`、`MaxAmmo`、`ReloadProgress01`、`IsAmmoFull`、`DisplayName` — 給未來 HUD 讀取
+- `CurrentAmmo`、`MaxAmmo`、`ReloadProgress01`、`IsAmmoFull`、`DisplayName` — 由玩家 HUD 讀取
+- **裝備時從 0 發開始**；之後在裝備中一發一發回彈
 - 成功的 `Attack` 消耗 1 發，並**重置**回彈計時
 - 裝備中且未滿彈時，`Update` 會一發一發回彈
 - **按住左鍵**即可在有彈且間隔允許時連續攻擊
 - 敵人也走同一個 `IsReady`：有彈就連打，空彈時繼續追擊並回彈，回出子彈再開火
+
+### 分段血條／彈藥 HUD
+
+共用 Prefab `EducationalContent/Prefabs/UIs`（World-space Canvas，含 `Health` + `Ammo` 兩列 `SegmentedBar`）會掛在 **Player** 與 **EnemyTemplate** 底下：
+
+- 每一格是 `UISegment` 實例（九宮格外框 + 內部 `Image` fill）
+- 段數對齊 `Health.MaxValue`／`Weapon.MaxAmmo`，數值改變時會重建（例如換槍）
+- 滿格 `fillAmount = 1`，空格為 `0`
+- 彈藥的下一空格使用 `ReloadProgress01`，回彈過程會看到 fill 動畫
+- 腳本：`Assets/Scripts/UI/` 下的 `SegmentView`、`SegmentedBar`、`HealthBarDisplay`、`AmmoBarDisplay`
+- `HealthBarDisplay` 綁定角色身上的 `Health`
+- `AmmoBarDisplay` 綁定角色的 `WeaponPivot.CurrentWeapon`（玩家與敵人都適用）
+- `Health.OnChanged` 通知血條；彈藥條每幀輪詢當前武器
+
+若缺少 `UIs`／`UISegment` 配線，執行 **NTHUGDC → Setup Educational Content**。
 
 ## 學生任務
 
@@ -324,6 +342,7 @@ Sprite 與階層結構放在 Prefab；類別定義在 `Scripts/Combat/Data/`，�
 | `EnemyController` | Idle／Aggro 行為 |
 | `VelocityWaddleTween` | 依速度大小做行走小擺動 |
 | `MeleeSwingVisual` | 揮砍視覺的旋轉 tween（之後學生再做） |
+| `SegmentedBar` / `HealthBarDisplay` / `AmmoBarDisplay` | 分段 World-space 血條與彈藥 HUD |
 | `Player*` | 已完成的玩家 Prefab |
 
 舊版 RangeDetect／舊彈道策略在 `Assets/Scripts/Optional/`，本實驗不需要。

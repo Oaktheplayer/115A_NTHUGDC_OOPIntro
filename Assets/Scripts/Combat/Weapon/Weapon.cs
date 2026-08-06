@@ -63,7 +63,7 @@ namespace Combat
                     hurtBoxObject = hurtBox.gameObject;
             }
 
-            RefillAmmo();
+            ClearAmmo();
 
             // Default: scene-placed weapons on the ground have no parent.
             // If parented under a character / WeaponPivot, equip using the nearest Player/Enemy tag.
@@ -125,7 +125,7 @@ namespace Combat
 
             IsEquipped = true;
             owner.ConfigureForHolder(holderTag);
-            RefillAmmo();
+            ClearAmmo();
 
             if (pickup != null)
                 pickup.enabled = false;
@@ -155,16 +155,9 @@ namespace Combat
                 hurtBoxObject.SetActive(false);
         }
 
-        private void RefillAmmo()
+        private void ClearAmmo()
         {
-            if (data == null)
-            {
-                currentAmmo = 0;
-                reloadTimer = 0f;
-                return;
-            }
-
-            currentAmmo = Mathf.Max(1, data.maxAmmo);
+            currentAmmo = 0;
             reloadTimer = 0f;
         }
 

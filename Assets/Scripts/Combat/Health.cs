@@ -28,11 +28,14 @@ namespace Combat
         public UnityEvent OnKilled;
         public event Action OnKilledEvent;
         public event Action<int> OnDamageTaken;
+        /// <summary>Fires whenever Value or MaxValue changes (damage, heal, apply max, death).</summary>
+        public event Action OnChanged;
 
         private void Awake()
         {
             value = maxValue;
             LifeState = State.Alive;
+            NotifyChanged();
         }
 
         public void ApplyMaxHealth(int max)
@@ -41,6 +44,7 @@ namespace Combat
             value = maxValue;
             LifeState = State.Alive;
             enabled = true;
+            NotifyChanged();
         }
 
         public void TakeDamage(int amount)
@@ -57,6 +61,7 @@ namespace Combat
 
             OnDamageTaken?.Invoke(delta);
             OnDamaged?.Invoke();
+            NotifyChanged();
 
             if (value <= 0)
                 Kill();
@@ -67,7 +72,12 @@ namespace Combat
             if (LifeState == State.Dead)
                 return;
 
-            value = Mathf.Min(maxValue, value + Mathf.Max(0, amount));
+            int next = Mathf.Min(maxValue, value + Mathf.Max(0, amount));
+            if (next == value)
+                return;
+
+            value = next;
+            NotifyChanged();
         }
 
         [ContextMenu("Test Kill")]
@@ -80,11 +90,17 @@ namespace Combat
             value = 0;
             OnKilled?.Invoke();
             OnKilledEvent?.Invoke();
+            NotifyChanged();
 
             if (destroyOnDeath)
                 Destroy(gameObject);
             else
                 enabled = false;
+        }
+
+        private void NotifyChanged()
+        {
+            OnChanged?.Invoke();
         }
     }
 }

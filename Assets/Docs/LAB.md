@@ -26,7 +26,7 @@ Assets/
 2. Menu: **NTHUGDC → Setup Educational Content**
 3. This creates `Assets/EducationalContent/` with:
    - `WeaponData_Pistol`, `WeaponData_Axe`, `ProjectileData_Bullet`, `EnemyData_Basic`
-   - Prefabs: `Player`, `EnemyTemplate`, `WeaponTemplate_Ranged`, `WeaponTemplate_Melee`, `Projectile_Bullet`
+   - Prefabs: `Player`, `EnemyTemplate`, `WeaponTemplate_Ranged`, `WeaponTemplate_Melee`, `Projectile_Bullet`, `UISegment`, `UIs`
 4. Drag `Player` into `BaseScene`. Place a few `EnemyTemplate` instances and a few weapon prefabs on the ground.
 5. Replace placeholder sprites with Kenney desert-shooter art on each Prefab’s `Sprite` child.
 
@@ -35,6 +35,7 @@ Assets/
 ### Enemy
 ```
 Enemy
+├── UIs             (shared HUD Prefab: Health + Ammo bars)
 ├── Sprite          (+ VelocityWaddleTween)
 ├── AggroZone       (CircleCollider2D trigger)
 └── WeaponPivot     (+ WeaponPivot; rotates toward player when Aggro)
@@ -46,6 +47,7 @@ Enemy
 ### Player
 ```
 Player
+├── UIs             (same shared HUD Prefab)
 ├── Sprite          (+ VelocityWaddleTween)
 └── WeaponPivot     (+ WeaponPivot; rotates toward mouse)
     └── Weapon
@@ -277,11 +279,27 @@ Both melee and ranged use the same magazine on `WeaponData`:
 
 Runtime state lives on the `Weapon` instance (not in the SO):
 
-- `CurrentAmmo`, `MaxAmmo`, `ReloadProgress01`, `IsAmmoFull`, `DisplayName` — for a future HUD
+- `CurrentAmmo`, `MaxAmmo`, `ReloadProgress01`, `IsAmmoFull`, `DisplayName` — read by the player HUD
+- **Equip starts at 0 ammo**; reload regenerates one-by-one while equipped
 - Successful `Attack` spends 1 ammo and **resets** the reload timer
 - While equipped and not full, `Update` regenerates ammo one-by-one
 - **Hold left mouse** to keep attacking whenever ammo and fire interval allow
 - Enemies use the same `IsReady` gate: they burst while they have ammo, keep chasing while reloading, then fire again
+
+### Segmented health / ammo HUD
+
+Shared Prefab `EducationalContent/Prefabs/UIs` (World-space Canvas with `Health` + `Ammo` `SegmentedBar` rows) is nested under **Player** and **EnemyTemplate**:
+
+- Each cell is an instance of `UISegment` (nine-sliced frame + inner `Image` fill)
+- Segment count matches `Health.MaxValue` / `Weapon.MaxAmmo` and rebuilds when those change (e.g. weapon swap)
+- Full segments use `fillAmount = 1`; empty use `0`
+- For ammo, the next empty segment uses `ReloadProgress01` so the fill animates while regenerating
+- Scripts: `SegmentView`, `SegmentedBar`, `HealthBarDisplay`, `AmmoBarDisplay` under `Assets/Scripts/UI/`
+- `HealthBarDisplay` binds the parent character’s `Health`
+- `AmmoBarDisplay` binds the character’s `WeaponPivot.CurrentWeapon` (works for both Player and Enemy)
+- `Health.OnChanged` notifies the health bar; the ammo bar polls the equipped weapon each frame
+
+Run **NTHUGDC → Setup Educational Content** if `UIs` / `UISegment` wiring is missing.
 
 ## Student assignments
 
@@ -321,6 +339,7 @@ Sprites and hierarchy live on Prefabs. Class definitions live in `Scripts/Combat
 | `EnemyController` | Idle / Aggro AI |
 | `VelocityWaddleTween` | Walk wiggle from velocity magnitude |
 | `MeleeSwingVisual` | Coroutine rotation tween (later student task) |
+| `SegmentedBar` / `HealthBarDisplay` / `AmmoBarDisplay` | Segmented world-space health & ammo HUD |
 | `Player*` | Ready-to-use player Prefab |
 
 Legacy RangeDetect / old projectile strategies live under `Assets/Scripts/Optional/` and are not required for the lab.
