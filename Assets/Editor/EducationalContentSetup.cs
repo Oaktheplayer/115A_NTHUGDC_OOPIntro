@@ -1,8 +1,10 @@
 using System.IO;
+using Audio;
 using Combat;
 using Enemy;
 using Game;
 using Player;
+using Settings;
 using TMPro;
 using UI;
 using UnityEditor;
@@ -24,6 +26,12 @@ namespace Educational.Editor
     {
         private const string Root = "Assets/EducationalContent";
         private const string AutoSetupSessionKey = "NTHUGDC_AutoGameMenusSetup_v2";
+        private const string AudioSettingsPath = Root + "/Data/AudioSettings_Default.asset";
+        private const string BgmPlayerPrefabPath = Root + "/Prefabs/BgmPlayer.prefab";
+        private const string GameMenusPrefabPath = Root + "/Prefabs/GameMenus.prefab";
+        private const string BgmVolumeRowName = "BgmVolumeRow";
+        private const float PauseVolumeRowY = -10f;
+        private const float PauseRestartY = -110f;
 
         [InitializeOnLoadMethod]
         private static void EnsurePlayerDataOnLoad()
@@ -90,6 +98,65 @@ namespace Educational.Editor
         }
 
         [InitializeOnLoadMethod]
+        private static void EnsureAudioSettingsOnLoad()
+        {
+            EditorApplication.delayCall += TryPatchAudioSettings;
+        }
+
+        /// <summary>
+        /// Backfills the audio SO / BgmPlayer prefab / pause-menu volume slider on projects
+        /// that were set up before audio existed. Touches assets only, never the scene.
+        /// </summary>
+        private static void TryPatchAudioSettings()
+        {
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+            {
+                EditorApplication.delayCall += TryPatchAudioSettings;
+                return;
+            }
+
+            // Not set up yet: Setup Educational Content will create everything.
+            if (!File.Exists(GameMenusPrefabPath))
+                return;
+
+            if (IsAudioSetupComplete())
+                return;
+
+            EnsureFolders();
+            EnsureAudioAssets();
+            PatchGameMenusPrefab(GameMenusPrefabPath);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[NTHUGDC] Patched AudioSettings / BgmPlayer prefab / pause-menu BGM slider.");
+        }
+
+        private static bool IsAudioSetupComplete()
+        {
+            var settings = AssetDatabase.LoadAssetAtPath<AudioSettingsData>(AudioSettingsPath);
+            if (settings == null)
+                return false;
+
+            var bgmPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BgmPlayerPrefabPath);
+            var player = bgmPrefab != null ? bgmPrefab.GetComponent<BgmPlayer>() : null;
+            if (player == null)
+                return false;
+
+            var playerSo = new SerializedObject(player);
+            if (playerSo.FindProperty("settings").objectReferenceValue == null
+                || playerSo.FindProperty("audioSource").objectReferenceValue == null)
+                return false;
+
+            var menus = AssetDatabase.LoadAssetAtPath<GameObject>(GameMenusPrefabPath);
+            var volume = menus != null ? menus.GetComponentInChildren<VolumeSlider>(true) : null;
+            if (volume == null)
+                return false;
+
+            var volumeSo = new SerializedObject(volume);
+            return volumeSo.FindProperty("settings").objectReferenceValue != null
+                   && volumeSo.FindProperty("slider").objectReferenceValue != null
+                   && volumeSo.FindProperty("valueLabel").objectReferenceValue != null;
+        }
+
+        [InitializeOnLoadMethod]
         private static void AutoWireGameMenusAfterCompile()
         {
             if (SessionState.GetBool(AutoSetupSessionKey, false))
@@ -122,7 +189,8 @@ namespace Educational.Editor
             try
             {
                 EnsureFolders();
-                string menusPath = $"{Root}/Prefabs/GameMenus.prefab";
+                EnsureAudioAssets();
+                string menusPath = GameMenusPrefabPath;
                 bool needPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(menusPath) == null;
                 bool needScene = !SceneHasGameManager();
 
@@ -172,6 +240,7 @@ namespace Educational.Editor
 
             var pistolData = CreateWeaponData($"{Root}/Data/WeaponData_Pistol.asset", "Pistol", 1, 0.3f, 0.1f, 3, 1.2f);
             var axeData = CreateWeaponData($"{Root}/Data/WeaponData_Axe.asset", "Axe", 2, 0.7f, 0.18f, 3, 1.5f);
+            EnsureAudioAssets();
             var enemyData = CreateEnemyData($"{Root}/Data/EnemyData_Basic.asset", 3, 2.5f, 5f);
             var playerData = CreatePlayerData($"{Root}/Data/PlayerData_Default.asset", 5, 5f);
 
@@ -196,11 +265,33 @@ namespace Educational.Editor
         public static void SetupGameMenusOnly()
         {
             EnsureFolders();
+            EnsureAudioAssets();
             EnsureGameMenusPrefab($"{Root}/Prefabs/GameMenus.prefab");
             EnsureBaseSceneGameMenus($"{Root}/Prefabs/GameMenus.prefab");
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("[NTHUGDC] GameMenus prefab + BaseScene wiring done.");
+        }
+
+        [MenuItem("NTHUGDC/Setup Audio Settings")]
+        public static void SetupAudioSettings()
+        {
+            EnsureFolders();
+            EnsureAudioAssets();
+            EnsureGameMenusPrefab(GameMenusPrefabPath);
+            EnsureBaseSceneGameMenus(GameMenusPrefabPath);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[NTHUGDC] AudioSettings_Default + BgmPlayer prefab + pause-menu BGM slider ready. Drag a music clip onto BgmPlayer.prefab (Bgm Clip).");
+        }
+
+        /// <summary>
+        /// AudioSettings_Default.asset + BgmPlayer.prefab. Safe to call repeatedly.
+        /// </summary>
+        private static void EnsureAudioAssets()
+        {
+            AudioSettingsData settings = CreateAudioSettingsData(AudioSettingsPath);
+            EnsureBgmPlayerPrefab(BgmPlayerPrefabPath, settings);
         }
 
         private static void EnsureFolders()
@@ -215,6 +306,86 @@ namespace Educational.Editor
             string path = $"{parent}/{name}";
             if (!AssetDatabase.IsValidFolder(path))
                 AssetDatabase.CreateFolder(parent, name);
+        }
+
+        private static AudioSettingsData CreateAudioSettingsData(string path)
+        {
+            // Keep the existing asset untouched: its bgmVolume is whatever the class last set.
+            var existing = AssetDatabase.LoadAssetAtPath<AudioSettingsData>(path);
+            if (existing != null)
+                return existing;
+
+            var data = ScriptableObject.CreateInstance<AudioSettingsData>();
+            AssetDatabase.CreateAsset(data, path);
+            return data;
+        }
+
+        private static GameObject EnsureBgmPlayerPrefab(string path, AudioSettingsData settings)
+        {
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(path) != null)
+            {
+                // Existing prefab: only backfill missing references (bgmClip belongs to the teacher).
+                GameObject contents = PrefabUtility.LoadPrefabContents(path);
+                try
+                {
+                    bool changed = false;
+                    var source = contents.GetComponent<AudioSource>();
+                    if (source == null)
+                    {
+                        source = contents.AddComponent<AudioSource>();
+                        source.playOnAwake = false;
+                        source.loop = true;
+                        changed = true;
+                    }
+
+                    var player = contents.GetComponent<BgmPlayer>();
+                    if (player == null)
+                    {
+                        player = contents.AddComponent<BgmPlayer>();
+                        changed = true;
+                    }
+
+                    var so = new SerializedObject(player);
+                    var settingsProp = so.FindProperty("settings");
+                    if (settingsProp.objectReferenceValue == null && settings != null)
+                    {
+                        settingsProp.objectReferenceValue = settings;
+                        changed = true;
+                    }
+
+                    var sourceProp = so.FindProperty("audioSource");
+                    if (sourceProp.objectReferenceValue == null)
+                    {
+                        sourceProp.objectReferenceValue = source;
+                        changed = true;
+                    }
+
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                    if (changed)
+                        PrefabUtility.SaveAsPrefabAsset(contents, path);
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(contents);
+                }
+
+                return AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            }
+
+            var root = new GameObject("BgmPlayer");
+            var audioSource = root.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+            audioSource.loop = true;
+
+            var bgm = root.AddComponent<BgmPlayer>();
+            var bgmSo = new SerializedObject(bgm);
+            bgmSo.FindProperty("settings").objectReferenceValue = settings;
+            bgmSo.FindProperty("audioSource").objectReferenceValue = audioSource;
+            bgmSo.ApplyModifiedPropertiesWithoutUndo();
+
+            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
+            Object.DestroyImmediate(root);
+            return prefab;
         }
 
         private static ProjectileData CreateProjectileData(string path, GameObject prefab, float speed, float lifetime)
@@ -857,7 +1028,9 @@ namespace Educational.Editor
             // Pause panel — instant show/hide
             GameObject pausePanel = CreateMenuPanel(root.transform, "PausePanel", new Color(0f, 0f, 0f, 0.65f));
             CreateTmpLabel(pausePanel.transform, "Title", "Paused", 72f, font, new Vector2(0f, 80f));
-            Button pauseRestart = CreateMenuButton(pausePanel.transform, "RestartButton", "Restart", font, new Vector2(0f, -40f));
+            CreateBgmVolumeRow(pausePanel.transform, font,
+                AssetDatabase.LoadAssetAtPath<AudioSettingsData>(AudioSettingsPath));
+            Button pauseRestart = CreateMenuButton(pausePanel.transform, "RestartButton", "Restart", font, new Vector2(0f, PauseRestartY));
             pausePanel.SetActive(false);
 
             // Game over panel — CanvasGroup fade
@@ -889,18 +1062,238 @@ namespace Educational.Editor
             GameObject contents = PrefabUtility.LoadPrefabContents(path);
             try
             {
-                if (contents.GetComponentInChildren<EnemyCountDisplay>(true) != null)
-                    return;
-
+                bool changed = false;
                 TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
                     "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset");
-                CreateEnemyCountHud(contents.transform, font);
-                PrefabUtility.SaveAsPrefabAsset(contents, path);
+
+                if (contents.GetComponentInChildren<EnemyCountDisplay>(true) == null)
+                {
+                    CreateEnemyCountHud(contents.transform, font);
+                    changed = true;
+                }
+
+                var settings = AssetDatabase.LoadAssetAtPath<AudioSettingsData>(AudioSettingsPath);
+                if (PatchPauseBgmVolumeRow(contents, font, settings))
+                    changed = true;
+
+                if (changed)
+                    PrefabUtility.SaveAsPrefabAsset(contents, path);
             }
             finally
             {
                 PrefabUtility.UnloadPrefabContents(contents);
             }
+        }
+
+        /// <summary>
+        /// Adds the BGM volume row to an existing PausePanel, or backfills its references.
+        /// Returns true when something changed.
+        /// </summary>
+        private static bool PatchPauseBgmVolumeRow(GameObject menusRoot, TMP_FontAsset font, AudioSettingsData settings)
+        {
+            GameObject pausePanel = null;
+            var manager = menusRoot.GetComponent<GameManager>();
+            if (manager != null)
+                pausePanel = new SerializedObject(manager).FindProperty("pausePanel").objectReferenceValue as GameObject;
+            if (pausePanel == null)
+            {
+                Transform found = menusRoot.transform.Find("PausePanel");
+                pausePanel = found != null ? found.gameObject : null;
+            }
+
+            if (pausePanel == null)
+            {
+                Debug.LogWarning("[NTHUGDC] GameMenus has no PausePanel; skipped BGM volume row.");
+                return false;
+            }
+
+            Transform row = pausePanel.transform.Find(BgmVolumeRowName);
+            if (row == null)
+            {
+                row = CreateBgmVolumeRow(pausePanel.transform, font, settings).transform;
+
+                // Title -> Volume -> Restart; push Restart below the new row.
+                Transform restart = pausePanel.transform.Find("RestartButton");
+                if (restart != null)
+                {
+                    row.SetSiblingIndex(restart.GetSiblingIndex());
+                    var restartRt = restart.GetComponent<RectTransform>();
+                    if (restartRt != null && restartRt.anchoredPosition.y > PauseRestartY)
+                        restartRt.anchoredPosition = new Vector2(restartRt.anchoredPosition.x, PauseRestartY);
+                }
+
+                return true;
+            }
+
+            // Row exists: only fill missing references.
+            var volume = row.GetComponentInChildren<VolumeSlider>(true);
+            if (volume == null)
+                return false;
+
+            bool changed = false;
+            var so = new SerializedObject(volume);
+            var settingsProp = so.FindProperty("settings");
+            if (settingsProp.objectReferenceValue == null && settings != null)
+            {
+                settingsProp.objectReferenceValue = settings;
+                changed = true;
+            }
+
+            var sliderProp = so.FindProperty("slider");
+            if (sliderProp.objectReferenceValue == null)
+            {
+                sliderProp.objectReferenceValue = volume.GetComponent<Slider>();
+                changed = true;
+            }
+
+            var labelProp = so.FindProperty("valueLabel");
+            Transform valueTf = row.Find("Value");
+            if (labelProp.objectReferenceValue == null && valueTf != null && valueTf.GetComponent<TMP_Text>() != null)
+            {
+                labelProp.objectReferenceValue = valueTf.GetComponent<TMP_Text>();
+                changed = true;
+            }
+
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return changed;
+        }
+
+        /// <summary>
+        /// "BGM Volume  [=====o----]  80%" row for the pause panel, wired to VolumeSlider.
+        /// </summary>
+        private static GameObject CreateBgmVolumeRow(Transform pausePanel, TMP_FontAsset font, AudioSettingsData settings)
+        {
+            var row = new GameObject(BgmVolumeRowName, typeof(RectTransform));
+            row.transform.SetParent(pausePanel, false);
+            var rowRt = row.GetComponent<RectTransform>();
+            rowRt.anchorMin = new Vector2(0.5f, 0.5f);
+            rowRt.anchorMax = new Vector2(0.5f, 0.5f);
+            rowRt.pivot = new Vector2(0.5f, 0.5f);
+            rowRt.sizeDelta = new Vector2(640f, 56f);
+            rowRt.anchoredPosition = new Vector2(0f, PauseVolumeRowY);
+
+            // LiberationSans SDF (the only TMP font here) has no CJK glyphs, so the label stays English.
+            TMP_Text label = CreateRowText(row.transform, "Label", "BGM Volume", TextAlignmentOptions.MidlineLeft, font);
+            RectTransform labelRt = label.rectTransform;
+            labelRt.anchorMin = new Vector2(0f, 0f);
+            labelRt.anchorMax = new Vector2(0f, 1f);
+            labelRt.pivot = new Vector2(0f, 0.5f);
+            labelRt.sizeDelta = new Vector2(220f, 0f);
+            labelRt.anchoredPosition = Vector2.zero;
+
+            float initial = settings != null ? settings.BgmVolume : 0.8f;
+            Slider slider = CreateVolumeSlider(row.transform, initial);
+
+            TMP_Text value = CreateRowText(row.transform, "Value", $"{Mathf.RoundToInt(initial * 100f)}%",
+                TextAlignmentOptions.MidlineRight, font);
+            RectTransform valueRt = value.rectTransform;
+            valueRt.anchorMin = new Vector2(1f, 0f);
+            valueRt.anchorMax = new Vector2(1f, 1f);
+            valueRt.pivot = new Vector2(1f, 0.5f);
+            valueRt.sizeDelta = new Vector2(100f, 0f);
+            valueRt.anchoredPosition = Vector2.zero;
+
+            var volume = slider.gameObject.AddComponent<VolumeSlider>();
+            var so = new SerializedObject(volume);
+            so.FindProperty("settings").objectReferenceValue = settings;
+            so.FindProperty("slider").objectReferenceValue = slider;
+            so.FindProperty("valueLabel").objectReferenceValue = value;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return row;
+        }
+
+        private static TMP_Text CreateRowText(
+            Transform parent,
+            string name,
+            string text,
+            TextAlignmentOptions alignment,
+            TMP_FontAsset font)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+
+            var tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.text = text;
+            tmp.fontSize = 32f;
+            tmp.alignment = alignment;
+            tmp.color = Color.white;
+            tmp.raycastTarget = false;
+            if (font != null)
+                tmp.font = font;
+            return tmp;
+        }
+
+        /// <summary>
+        /// Standard UGUI slider hierarchy (Background / Fill Area / Handle Slide Area), range 0..1.
+        /// </summary>
+        private static Slider CreateVolumeSlider(Transform parent, float initial)
+        {
+            Sprite barSprite = GetUiFillSprite();
+
+            var go = new GameObject("BgmVolumeSlider", typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0.5f);
+            rt.anchorMax = new Vector2(0f, 0.5f);
+            rt.pivot = new Vector2(0f, 0.5f);
+            rt.sizeDelta = new Vector2(300f, 28f);
+            rt.anchoredPosition = new Vector2(230f, 0f);
+
+            var bgGo = new GameObject("Background", typeof(RectTransform));
+            bgGo.transform.SetParent(go.transform, false);
+            var bgRt = bgGo.GetComponent<RectTransform>();
+            bgRt.anchorMin = new Vector2(0f, 0.25f);
+            bgRt.anchorMax = new Vector2(1f, 0.75f);
+            bgRt.offsetMin = Vector2.zero;
+            bgRt.offsetMax = Vector2.zero;
+            var bg = bgGo.AddComponent<Image>();
+            bg.sprite = barSprite;
+            bg.type = Image.Type.Sliced;
+            bg.color = new Color(0.25f, 0.25f, 0.25f, 1f);
+
+            var fillAreaGo = new GameObject("Fill Area", typeof(RectTransform));
+            fillAreaGo.transform.SetParent(go.transform, false);
+            var fillAreaRt = fillAreaGo.GetComponent<RectTransform>();
+            fillAreaRt.anchorMin = new Vector2(0f, 0.25f);
+            fillAreaRt.anchorMax = new Vector2(1f, 0.75f);
+            fillAreaRt.offsetMin = new Vector2(5f, 0f);
+            fillAreaRt.offsetMax = new Vector2(-15f, 0f);
+
+            var fillGo = new GameObject("Fill", typeof(RectTransform));
+            fillGo.transform.SetParent(fillAreaGo.transform, false);
+            var fillRt = fillGo.GetComponent<RectTransform>();
+            fillRt.sizeDelta = new Vector2(10f, 0f);
+            var fill = fillGo.AddComponent<Image>();
+            fill.sprite = barSprite;
+            fill.type = Image.Type.Sliced;
+            fill.color = new Color(0.2f, 0.55f, 0.95f, 1f);
+
+            var handleAreaGo = new GameObject("Handle Slide Area", typeof(RectTransform));
+            handleAreaGo.transform.SetParent(go.transform, false);
+            var handleAreaRt = handleAreaGo.GetComponent<RectTransform>();
+            handleAreaRt.anchorMin = Vector2.zero;
+            handleAreaRt.anchorMax = Vector2.one;
+            handleAreaRt.offsetMin = new Vector2(10f, 0f);
+            handleAreaRt.offsetMax = new Vector2(-10f, 0f);
+
+            var handleGo = new GameObject("Handle", typeof(RectTransform));
+            handleGo.transform.SetParent(handleAreaGo.transform, false);
+            var handleRt = handleGo.GetComponent<RectTransform>();
+            handleRt.sizeDelta = new Vector2(28f, 0f);
+            var handle = handleGo.AddComponent<Image>();
+            handle.sprite = GetDefaultSprite();
+            handle.color = Color.white;
+
+            var slider = go.AddComponent<Slider>();
+            slider.fillRect = fillRt;
+            slider.handleRect = handleRt;
+            slider.targetGraphic = handle;
+            slider.direction = Slider.Direction.LeftToRight;
+            slider.minValue = 0f;
+            slider.maxValue = 1f;
+            slider.wholeNumbers = false;
+            slider.SetValueWithoutNotify(initial);
+            return slider;
         }
 
         private static void CreateEnemyCountHud(Transform parent, TMP_FontAsset font)
@@ -1002,6 +1395,21 @@ namespace Educational.Editor
                 var instance = (GameObject)PrefabUtility.InstantiatePrefab(menusPrefab);
                 instance.name = "GameMenus";
                 Undo.RegisterCreatedObjectUndo(instance, "Create GameMenus");
+            }
+
+            if (Object.FindAnyObjectByType<BgmPlayer>(FindObjectsInactive.Include) == null)
+            {
+                var bgmPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BgmPlayerPrefabPath);
+                if (bgmPrefab != null)
+                {
+                    var bgmInstance = (GameObject)PrefabUtility.InstantiatePrefab(bgmPrefab);
+                    bgmInstance.name = "BgmPlayer";
+                    Undo.RegisterCreatedObjectUndo(bgmInstance, "Create BgmPlayer");
+                }
+                else
+                {
+                    Debug.LogWarning($"[NTHUGDC] BgmPlayer prefab missing: {BgmPlayerPrefabPath}");
+                }
             }
 
             EditorSceneManager.MarkSceneDirty(scene);
