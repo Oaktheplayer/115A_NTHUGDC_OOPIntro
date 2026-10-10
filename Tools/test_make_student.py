@@ -233,6 +233,13 @@ class EndToEndTests(unittest.TestCase):
         self.assertTrue((self.out / "Assets/Scripts/C.cs").exists())
         self.assertIn("Assets/Audio/bgm.wav", so)
 
+    def test_markdown_may_mention_symbol(self):
+        (self.src / "Assets/Docs").mkdir()
+        (self.src / "Assets/Docs/LAB.md").write_text("csc.rsp defines LAB_SOLUTION")
+        code, _, _ = self.run_main("--out", str(self.out))
+        self.assertEqual(code, 0)
+        self.assertTrue((self.out / "Assets/Docs/LAB.md").exists())
+
     def test_full_run(self):
         self.out.mkdir()
         (self.out / ".git").write_text("gitdir: elsewhere")
@@ -293,10 +300,10 @@ class EndToEndTests(unittest.TestCase):
         self.assertTrue((self.out / "keep.txt").exists())
 
     def test_leftover_symbol_is_error(self):
-        (self.src / "Assets/Readme.md").write_text("define LAB_SOLUTION to see answers")
+        (self.src / "Assets/Defines.asset").write_text("scriptingDefineSymbols: LAB_SOLUTION")
         code, _, se = self.run_main("--out", str(self.out))
         self.assertNotEqual(code, 0)
-        self.assertIn("Assets/Readme.md", se)
+        self.assertIn("Assets/Defines.asset", se)
 
     def test_leftover_symbol_in_kept_else_is_error(self):
         (self.src / "Assets/Scripts/E.cs").write_text(

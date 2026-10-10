@@ -40,6 +40,8 @@ COPY_DIRS = ("Assets", "Packages", "ProjectSettings")
 COPY_FILES = (".gitignore",)
 EXCLUDED = {"Assets/csc.rsp", "Assets/csc.rsp.meta"}
 PRESERVED_IN_OUT = {".git"}
+# 文件可以提到 LAB_SOLUTION（老師章節會說明機制），殘留檢查只看程式與設定檔。
+LEFTOVER_SKIP_SUFFIXES = {".md"}
 
 DIRECTIVE_RE = re.compile(r"^[ \t]*#[ \t]*(if|elif|else|endif)\b(.*)$")
 HOLE_RE = re.compile(r"TODO\s*\[LAB-(H[0-9A-Za-z]+)\]")
@@ -221,6 +223,8 @@ def leftover_in_plan(plan: Plan) -> list[str]:
     bad = []
     needle = SYMBOL.encode()
     for p, rel in plan.copies:
+        if Path(rel).suffix.lower() in LEFTOVER_SKIP_SUFFIXES:
+            continue
         data = plan.outputs.get(rel)
         if data is None:
             data = p.read_bytes()
@@ -238,6 +242,8 @@ def scan_leftovers(out: Path) -> list[str]:
         for fn in filenames:
             p = Path(dirpath) / fn
             if Path(dirpath) == out and fn in PRESERVED_IN_OUT:
+                continue
+            if p.suffix.lower() in LEFTOVER_SKIP_SUFFIXES:
                 continue
             if needle in p.read_bytes():
                 bad.append(p.relative_to(out).as_posix())
