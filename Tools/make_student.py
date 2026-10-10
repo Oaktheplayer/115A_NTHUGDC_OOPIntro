@@ -28,6 +28,7 @@ import os
 import re
 import shutil
 import stat
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -61,6 +62,7 @@ class Plan:
     blocks: dict[str, int] = field(default_factory=dict)  # 相對路徑 -> 移除的區塊數
     holes: set[str] = field(default_factory=set)
     errors: list[str] = field(default_factory=list)
+    skipped_untracked: list[str] = field(default_factory=list)  # 沒被 git 追蹤而略過的檔案
 
 
 def _condition(rest: str) -> str:
@@ -157,8 +159,24 @@ def _iter_files(root: Path):
             yield Path(dirpath) / fn
 
 
+def _git_tracked(src: Path) -> set[str] | None:
+    """src 是 git repo 時回傳被追蹤的檔案（相對路徑）；不是 repo 則回傳 None。
+
+    只複製被追蹤的檔案，避免老師本機未 commit 的東西（例如音檔）跑進學生版。
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(src), "ls-files", "-z"],
+            capture_output=True, check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return {p.decode("utf-8") for p in out.split(b"\0") if p}
+
+
 def build_plan(src: Path) -> Plan:
     plan = Plan()
+    tracked = _git_tracked(src)
     for d in COPY_DIRS:
         base = src / d
         if not base.is_dir():
@@ -167,6 +185,9 @@ def build_plan(src: Path) -> Plan:
         for p in _iter_files(base):
             rel = p.relative_to(src).as_posix()
             if rel in EXCLUDED:
+                continue
+            if tracked is not None and rel not in tracked:
+                plan.skipped_untracked.append(rel)
                 continue
             plan.copies.append((p, rel))
     for f in COPY_FILES:
@@ -323,6 +344,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"已輸出到：{out}")
         for rel in sorted(plan.blocks):
             print(f"  {rel}：移除 {plan.blocks[rel]} 個區塊")
+
+    if plan.skipped_untracked:
+        print(f"略過 {len(plan.skipped_untracked)} 個沒被 git 追蹤的檔案：")
+        for rel in plan.skipped_untracked:
+            print(f"  {rel}")
 
     print(f"摘要：複製 {len(plan.copies)} 個檔案；處理 {len(plan.blocks)} 個 .cs 檔，"
           f"移除 {total_blocks} 個解答區塊；洞 {len(holes)} 個："

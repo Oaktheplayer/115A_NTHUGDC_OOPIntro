@@ -6,6 +6,7 @@
 import contextlib
 import importlib.util
 import io
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -216,6 +217,21 @@ class EndToEndTests(unittest.TestCase):
         with contextlib.redirect_stdout(so), contextlib.redirect_stderr(se):
             code = ms.main(["--src", str(self.src), *args])
         return code, so.getvalue(), se.getvalue()
+
+    def test_git_repo_copies_only_tracked_files(self):
+        s = self.src
+        git = ["git", "-C", str(s), "-c", "user.name=t", "-c", "user.email=t@t"]
+        subprocess.run(git[:3] + ["init", "-q"], check=True)
+        (s / "Assets/Audio").mkdir()
+        (s / "Assets/Audio/bgm.wav").write_bytes(b"RIFF")
+        (s / "Assets/Audio/bgm.wav.meta").write_text("guid: w")
+        subprocess.run(git[:3] + ["add", "Assets", "Packages", "ProjectSettings", ".gitignore"], check=True)
+        subprocess.run(git[:3] + ["rm", "-q", "--cached", "-r", "Assets/Audio"], check=True)
+        code, so, _ = self.run_main("--out", str(self.out))
+        self.assertEqual(code, 0)
+        self.assertFalse((self.out / "Assets/Audio/bgm.wav").exists())
+        self.assertTrue((self.out / "Assets/Scripts/C.cs").exists())
+        self.assertIn("Assets/Audio/bgm.wav", so)
 
     def test_full_run(self):
         self.out.mkdir()

@@ -1,7 +1,7 @@
 # OOP Lab — Prefab, ScriptableObject, Inheritance
 
 ## Goal
-Clear the field: find and defeat every enemy. Controls: **WASD** move, **hold Left Mouse** to attack (ammo-limited), **E** swap weapon with one on the ground, **Space** pause / resume.
+Clear the field: find and defeat every enemy. Controls: **WASD** move, **hold Left Mouse** to attack (ammo-limited), **E** swap weapon with one on the ground, **Esc** pause / resume.
 
 ## Project layout
 
@@ -347,7 +347,7 @@ Run **NTHUGDC → Setup Educational Content** if `UIs` / `UISegment` wiring is m
 
 Screen-space Overlay Prefab `EducationalContent/Prefabs/GameMenus` (wired by Setup into `BaseScene`):
 
-- **Space** toggles pause (`Time.timeScale` 0/1); Pause panel shows/hides immediately
+- **Esc** toggles pause (`Time.timeScale` 0/1); Pause panel shows/hides immediately
 - The Pause panel has a **BGM volume slider** row (+ percentage text) between the title and Restart; `VolumeSlider` writes it into `AudioSettingsData`. `AudioSource` ignores `timeScale`, so music keeps playing and the slider works while paused (see the next section)
 - **Win**: all enemies defeated (`EnemyRegistry.OnAllEnemiesDefeated`) → Game Over panel fades in with “You Win!”
 - **Lose**: player `Health.OnKilledEvent` → same panel with “You Lose...”
@@ -389,7 +389,7 @@ flowchart LR
 
 1. Run **NTHUGDC → Setup Audio Settings** (or **NTHUGDC → Setup Educational Content**, which includes it). This creates `EducationalContent/Data/AudioSettings_Default` and `EducationalContent/Prefabs/BgmPlayer`, adds a BGM volume slider to the pause panel, and places `BgmPlayer` in `BaseScene`.
 2. Open `EducationalContent/Prefabs/BgmPlayer` and drag an audio file into **Bgm Clip** (empty by default; the scene instance follows the Prefab).
-3. Play → hear the music → press **Space** to pause → drag the **BGM volume** slider. The volume and the percentage update live.
+3. Play → hear the music → press **Esc** to pause → drag the **BGM volume** slider. The volume and the percentage update live.
 
 ### Student steps
 
@@ -480,7 +480,7 @@ Or switch to the `student` branch on GitHub and click **Code → Download ZIP**.
 - **Files**: two spots.
   - `Assets/Scripts/UI/VolumeSlider.cs`, `HandleValueChanged`: when the player drags the slider, write the new value into the SO. Hint: use the **property** `settings.BgmVolume` (not the field) — it notifies every subscriber.
   - `Assets/Scripts/Audio/BgmPlayer.cs`, `HandleVolumeChanged`: when the SO volume changes, make the playing BGM follow. Hint: this method is already subscribed to `settings.OnBgmVolumeChanged` in `OnEnable`; the `volume` parameter is the new value — assign it to `audioSource.volume`.
-- **When done**: pause (Space), drag the slider, and the music volume changes live; after stopping Play, `AudioSettings_Default` in the Inspector keeps the last value you dragged to (see “Heads-up” above).
+- **When done**: pause (Esc), drag the slider, and the music volume changes live; after stopping Play, `AudioSettings_Default` in the Inspector keeps the last value you dragged to (see “Heads-up” above).
 - **If missing**: the slider moves and the percentage label updates, but the volume never changes.
   - Only VolumeSlider done: the SO value changes (select the asset during Play to see it), but the music uses the new volume only on the **next Play**, because `Start` reads it just once.
   - Only BgmPlayer done: nobody writes to the SO, so the event never fires — still no effect.
@@ -531,7 +531,7 @@ Sprites and hierarchy live on Prefabs. Class definitions live in `Scripts/Combat
 | `MeleeSwingVisual` | Coroutine rotation tween (later student task) |
 | `SegmentedBar` / `HealthBarDisplay` / `AmmoBarDisplay` | Segmented world-space health & ammo HUD |
 | `EnemyCountDisplay` | Screen-space remaining / total enemy counter |
-| `GameManager` | Pause (Space), win/lose Game Over UI, Restart |
+| `GameManager` | Pause (Esc), win/lose Game Over UI, Restart |
 | `PlayerController` | Applies `PlayerData` to Health / PlayerMover |
 | `AudioSettingsData` | BGM volume settings SO; raises an event on change |
 | `BgmPlayer` | Loops the BGM and subscribes to `AudioSettingsData` volume changes |

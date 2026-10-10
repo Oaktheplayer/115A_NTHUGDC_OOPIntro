@@ -1,7 +1,7 @@
 # OOP Lab — Prefab、ScriptableObject 與繼承
 
 ## 目標
-清場：找到並擊敗場上所有敵人。操作：**WASD** 移動、**按住左鍵**攻擊（受彈藥限制）、**E** 與地上的武器交換、**Space** 暫停／繼續。
+清場：找到並擊敗場上所有敵人。操作：**WASD** 移動、**按住左鍵**攻擊（受彈藥限制）、**E** 與地上的武器交換、**Esc** 暫停／繼續。
 
 ## 專案資料夾結構
 
@@ -347,7 +347,7 @@ classDiagram
 
 Screen-space Overlay Prefab `EducationalContent/Prefabs/GameMenus`（Setup 會接到 `BaseScene`）：
 
-- **Space** 切換暫停（`Time.timeScale` 0/1）；Pause 面板即顯即隱
+- **Esc** 切換暫停（`Time.timeScale` 0/1）；Pause 面板即顯即隱
 - Pause 面板在標題與 Restart 之間有一列 **BGM 音量 Slider**（+ 百分比文字），由 `VolumeSlider` 寫進 `AudioSettingsData`。`AudioSource` 不受 `timeScale` 影響，暫停時音樂照常播放、Slider 也能拖（見下一節）
 - **勝利**：清光敵人（`EnemyRegistry.OnAllEnemiesDefeated`）→ Game Over 淡入「You Win!」
 - **失敗**：玩家 `Health.OnKilledEvent` → 同面板「You Lose...」
@@ -389,7 +389,7 @@ flowchart LR
 
 1. 執行 **NTHUGDC → Setup Audio Settings**（或 **NTHUGDC → Setup Educational Content**，會一起做）。會產生 `EducationalContent/Data/AudioSettings_Default`、`EducationalContent/Prefabs/BgmPlayer`，在暫停畫面加上 BGM 音量 Slider，並把 `BgmPlayer` 放進 `BaseScene`。
 2. 打開 `EducationalContent/Prefabs/BgmPlayer`，在 **Bgm Clip** 欄位拖入一個音檔（Prefab 預設是空的；場景裡的實例會跟著 Prefab）。
-3. Play → 聽到音樂 → 按 **Space** 暫停 → 拖動 **BGM 音量** Slider，音量即時改變、百分比跟著變。
+3. Play → 聽到音樂 → 按 **Esc** 暫停 → 拖動 **BGM 音量** Slider，音量即時改變、百分比跟著變。
 
 ### 學生操作
 
@@ -480,7 +480,7 @@ git clone -b student https://github.com/Oaktheplayer/115A_NTHUGDC_OOPIntro.git
 - **檔案**：兩處。
   - `Assets/Scripts/UI/VolumeSlider.cs` 的 `HandleValueChanged`：玩家拖動 Slider 時，把新數值寫進 SO。提示：用**屬性** `settings.BgmVolume`（不是直接改欄位），它會通知所有訂閱者。
   - `Assets/Scripts/Audio/BgmPlayer.cs` 的 `HandleVolumeChanged`：SO 的音量改變時，讓正在播放的 BGM 跟著變。提示：這個方法已在 `OnEnable` 訂閱了 `settings.OnBgmVolumeChanged`，參數 `volume` 就是新音量，把它設給 `audioSource.volume`。
-- **完成時**：暫停（Space）後拖 Slider，音樂音量即時改變；停止 Play 後在 Inspector 看 `AudioSettings_Default`，數值停在你最後拖到的位置（見上一節〈重點提醒〉）。
+- **完成時**：暫停（Esc）後拖 Slider，音樂音量即時改變；停止 Play 後在 Inspector 看 `AudioSettings_Default`，數值停在你最後拖到的位置（見上一節〈重點提醒〉）。
 - **未完成時**：Slider 能拖、百分比文字也會變，但音量完全不變。
   - 只完成 VolumeSlider：SO 的數值有變（Play 中選取資產就看得到），但音樂要等**下一次 Play** 才會用新音量——因為只有 `Start` 讀了一次。
   - 只完成 BgmPlayer：沒人寫 SO，事件不會觸發，所以一樣沒反應。
@@ -534,7 +534,7 @@ Sprite 與階層結構放在 Prefab；類別定義在 `Scripts/Combat/Data/`（`
 | `MeleeSwingVisual` | 揮砍視覺的旋轉 tween（之後學生再做） |
 | `SegmentedBar` / `HealthBarDisplay` / `AmmoBarDisplay` | 分段 World-space 血條與彈藥 HUD |
 | `EnemyCountDisplay` | Screen-space 敵人剩餘／總數計數 |
-| `GameManager` | 暫停（Space）、勝負結算 UI、Restart |
+| `GameManager` | 暫停（Esc）、勝負結算 UI、Restart |
 | `PlayerController` | 將 `PlayerData` 套用到 Health／PlayerMover |
 | `AudioSettingsData` | BGM 音量設定 SO，改值時發出事件 |
 | `BgmPlayer` | 循環播放 BGM，訂閱 `AudioSettingsData` 的音量事件 |

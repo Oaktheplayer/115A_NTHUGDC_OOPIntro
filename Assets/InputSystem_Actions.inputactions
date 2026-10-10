@@ -397,7 +397,7 @@
                 {
                     "name": "",
                     "id": "b0a1c2d3-e4f5-6789-0abc-def123456780",
-                    "path": "<Keyboard>/space",
+                    "path": "<Keyboard>/escape",
                     "interactions": "",
                     "processors": "",
                     "groups": "Keyboard&Mouse",
