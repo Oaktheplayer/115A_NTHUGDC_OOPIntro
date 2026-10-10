@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace Combat
@@ -54,9 +54,15 @@ namespace Combat
             if (!other.CompareTag(owner.ValidTargetTag))
                 return;
 
+#if LAB_SOLUTION
             Health health = other.GetComponent<Health>();
             if (health == null)
                 health = other.GetComponentInParent<Health>();
+#else
+            // TODO [LAB-H4] (1/2) 找出被砍到的物件身上的 Health 元件（血量是「組合」在 GameObject 上的元件）。
+            // 提示：other.GetComponent<Health>()；Collider 可能在子物件上，找不到時再試 GetComponentInParent<Health>()
+            Health health = null;
+#endif
 
             if (health == null || !health.IsAlive)
                 return;
@@ -67,7 +73,12 @@ namespace Combat
             if (damager == null)
                 damager = GetComponent<Damager>();
 
+#if LAB_SOLUTION
             damager?.DealDamage(health);
+#else
+            // TODO [LAB-H4] (2/2) 把找到的 Health 交給這個 HurtBox 擁有的 Damager 元件，讓它造成傷害。
+            // 提示：damager 可能是 null，記得檢查；Damager 有一個接收 Health 的方法
+#endif
         }
     }
 }

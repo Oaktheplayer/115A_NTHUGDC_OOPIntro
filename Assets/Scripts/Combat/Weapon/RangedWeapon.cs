@@ -19,6 +19,7 @@ namespace Combat
             Vector3 position = spawnPoint != null ? spawnPoint.position : transform.position;
             position += spawnOffset;
 
+#if LAB_SOLUTION
             GameObject instance = Instantiate(projectileData.prefab, position, Quaternion.identity);
             var projectile = instance.GetComponent<ProjectileMover>();
             var hit = instance.GetComponent<ProjectileHit>();
@@ -38,6 +39,11 @@ namespace Combat
             {
                 rb.linearVelocity = direction * projectileData.speed;
             }
+#else
+            // TODO [LAB-H3] 開槍：在 position 複製一顆子彈 Prefab，並設定它的傷害與飛行方向。
+            // 提示：Instantiate(projectileData.prefab, ...)；再用 GetComponent 取得 ProjectileHit / ProjectileMover 呼叫 Initialize(...)
+            // 提示：傷害來自 data.damage、目標 Tag 來自 owner.ValidTargetTag；速度與壽命來自 projectileData
+#endif
         }
 
         private void OnDrawGizmos()
