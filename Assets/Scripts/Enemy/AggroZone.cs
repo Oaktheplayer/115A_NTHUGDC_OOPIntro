@@ -28,6 +28,7 @@ namespace Enemy
             circle.radius = Mathf.Max(0.1f, radius);
         }
 
+#if LAB_SOLUTION
         private void OnTriggerEnter2D(Collider2D other)
         {
             if (!other.CompareTag(Combat.WeaponOwner.PlayerTag))
@@ -35,6 +36,11 @@ namespace Enemy
 
             controller?.NotifyPlayerDetected(other.transform);
         }
+#else
+        // TODO [LAB-H1] 自己寫出 Unity 的 Trigger 回呼方法：玩家走進圈圈時，用 CompareTag(Combat.WeaponOwner.PlayerTag) 確認是玩家，再呼叫 controller.NotifyPlayerDetected(other.transform)。
+        // 提示：上一堂 Physics2D——圈圈的 Collider2D 已設 isTrigger，所以要用 OnTrigger 系列而不是 OnCollision 系列；方法名稱與參數型別（2D 版！）拼錯 Unity 就不會呼叫。
+        // 提示：至少一方要有 Rigidbody2D 才會觸發（敵人身上已經有了）；這裡是 2D，參數是 Collider2D 不是 Collision2D。
+#endif
 
 #if UNITY_EDITOR
         private void OnDrawGizmosSelected()

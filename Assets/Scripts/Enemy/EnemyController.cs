@@ -34,10 +34,15 @@ namespace Enemy
             if (aggroZone == null)
                 aggroZone = GetComponentInChildren<AggroZone>(true);
 
+#if LAB_SOLUTION
             if (health != null)
                 health.ApplyMaxHealth(data.maxHealth);
             if (aggroZone != null)
                 aggroZone.SetRadius(data.aggroRange);
+#else
+            // TODO [LAB-H2] 把 EnemyData（ScriptableObject）裡的血量和仇恨範圍，套用到 health 與 aggroZone 上。
+            // 提示：資料集中在一個地方（data），其他元件再去讀——看看 Health 和 AggroZone 各有哪個 public 方法可以接收這些數值。
+#endif
 
             if (weapon != null && weaponPivot != null)
                 weaponPivot.Equip(weapon, WeaponOwner.EnemyTag);
