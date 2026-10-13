@@ -41,8 +41,12 @@ namespace Combat
             }
 #else
             // TODO [LAB-H3] 開槍：在 position 複製一顆子彈 Prefab，並設定它的傷害與飛行方向。
-            // 提示：Instantiate(projectileData.prefab, ...)；再用 GetComponent 取得 ProjectileHit / ProjectileMover 呼叫 Initialize(...)
-            // 提示：傷害來自 data.damage、目標 Tag 來自 owner.ValidTargetTag；速度與壽命來自 projectileData
+            // 提示：
+            // 1. Instantiate(projectileData.prefab, ...)
+            // 2. 用 GetComponent 取得 ProjectileHit / ProjectileMover
+            // 3. 對取得的兩個元件呼叫 Initialize(...) 來設定數值
+            // 3-1. 傷害來自 data.damage、目標 Tag 來自 owner.ValidTargetTag
+            // 3-2. 速度與壽命來自 projectileData
 #endif
         }
 

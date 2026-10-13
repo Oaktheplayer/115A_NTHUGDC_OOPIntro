@@ -49,7 +49,9 @@ namespace Audio
             audioSource.volume = volume;
 #else
             // TODO [LAB-H6] 設定檔的音量改變時，讓正在播放的 BGM 跟著變大聲／變小聲。（投影片「ScriptableObject 設定／Observer」）
-            // 提示：這個方法已在 OnEnable 訂閱了 settings.OnBgmVolumeChanged；參數 volume 就是新音量。
+            // 提示：
+            // 1. HandleVolumeChanged這個方法已在 OnEnable 訂閱了 settings.OnBgmVolumeChanged (玩家動滑桿->這個函數被叫用)
+            // 2. 參數 volume 就是新音量。
             // 提示：把它設給 audioSource.volume。
 #endif
         }
